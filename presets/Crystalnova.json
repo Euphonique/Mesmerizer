@@ -1,0 +1,41 @@
+{
+    "count": 13,
+    "lobes": 6,
+    "radius": 31,
+    "spacing": -6,
+    "amp": 53,
+    "asymmetry": 43,
+    "rotSpeed": -6,
+    "phaseStep": 18.5,
+    "pulseMin": 68,
+    "pulseSpeed": -28,
+    "pulseSpread": 40,
+    "stroke": 1.6,
+    "glow": 151,
+    "scale": 189,
+    "waveform": "steps",
+    "rotDir": "same",
+    "symmetry": 1,
+    "symRot": -42.5,
+    "colorMode": "gradient",
+    "bg": "#000000",
+    "ringA": "#14f127",
+    "ringB": "#6a88e2",
+    "opacityA": 62,
+    "opacityB": 46,
+    "animActive": false,
+    "animParams": [],
+    "lockedParams": [
+        "p_scale",
+        "p_radius"
+    ],
+    "touchMode": "off",
+    "collapsed": [
+        "rotation",
+        "pulse",
+        "share",
+        "configuration",
+        "embed",
+        "server"
+    ]
+}

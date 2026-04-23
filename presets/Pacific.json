@@ -1,0 +1,22 @@
+{
+    "count": 17,
+    "lobes": 5,
+    "radius": 203,
+    "spacing": 15.2,
+    "amp": 18,
+    "rotSpeed": 12,
+    "phaseStep": 24,
+    "pulseMin": 55,
+    "pulseSpeed": 40,
+    "pulseSpread": 60,
+    "stroke": 3,
+    "glow": 46,
+    "scale": 34,
+    "waveform": "petal",
+    "rotDir": "same",
+    "symmetry": 1,
+    "colorMode": "gradient",
+    "bg": "#0b2341",
+    "ringA": "#0b2341",
+    "ringB": "#90bafe"
+}

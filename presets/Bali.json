@@ -1,8 +1,8 @@
 {
     "count": 13,
-    "lobes": 6,
+    "lobes": 5,
     "radius": 160,
-    "spacing": 2.3,
+    "spacing": -11.6,
     "amp": 46,
     "rotSpeed": 12,
     "phaseStep": 4,
@@ -16,7 +16,7 @@
     "rotDir": "same",
     "symmetry": 1,
     "colorMode": "alternate",
-    "bg": "#120a28",
-    "ringA": "#b088ff",
-    "ringB": "#ff88d4"
+    "bg": "#9f4422",
+    "ringA": "#8d54f2",
+    "ringB": "#9e93e2"
 }

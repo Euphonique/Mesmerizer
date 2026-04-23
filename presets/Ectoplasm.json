@@ -1,0 +1,36 @@
+{
+    "count": 11,
+    "lobes": 3,
+    "radius": 175,
+    "spacing": 0,
+    "amp": 17,
+    "asymmetry": 0,
+    "rotSpeed": 18,
+    "phaseStep": -60,
+    "pulseMin": 22,
+    "pulseSpeed": -175,
+    "pulseSpread": 21,
+    "stroke": 1.7,
+    "glow": 59,
+    "scale": 55,
+    "waveform": "pinch",
+    "rotDir": "alternate",
+    "symmetry": 2,
+    "symRot": -30.5,
+    "colorMode": "alternate",
+    "bg": "#000000",
+    "ringA": "#b925ef",
+    "ringB": "#02e4e8",
+    "opacityA": 63,
+    "opacityB": 100,
+    "animActive": false,
+    "animParams": [
+        "p_opacityB",
+        "p_opacityA"
+    ],
+    "lockedParams": [],
+    "touchMode": "ripple",
+    "collapsed": [
+        "embed"
+    ]
+}
