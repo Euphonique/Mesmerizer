@@ -4,6 +4,8 @@
 
 <img width="1412" height="668" alt="Screenshot 2026-04-23 095125" src="https://github.com/user-attachments/assets/4e84b1a5-4baa-4676-ae06-005481865529" />
 
+
+
 What happens when AI meets art? 
 This is a little toy I developed for myself. It generates fascinating patterns.
 What started out as an idea for a simple loading animation turned into a sophisticated editor.
