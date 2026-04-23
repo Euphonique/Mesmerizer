@@ -7,7 +7,7 @@
 
 
 What happens when AI meets art? 
-This is a little toy I developed for myself. It generates fascinating patterns.
+This is a little toy I developed for myself. It generates animated fascinating evolving patterns.
 What started out as an idea for a simple loading animation turned into a sophisticated editor.
 
 Just have fun. Share presets, embed them on your website, download the SVG file...
