@@ -1,0 +1,17 @@
+{
+    "count": 5,
+    "lobes": 4,
+    "radius": 131,
+    "spacing": -8,
+    "amp": 35,
+    "rotSpeed": 19,
+    "phaseStep": -55,
+    "pulseMin": 74,
+    "pulseSpeed": 137,
+    "pulseSpread": 37,
+    "stroke": 1.2,
+    "glow": 82,
+    "bg": "#120a28",
+    "ringA": "#7856c8",
+    "ringB": "#57e6e9"
+}

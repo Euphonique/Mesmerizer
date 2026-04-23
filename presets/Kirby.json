@@ -1,0 +1,22 @@
+{
+    "count": 2,
+    "lobes": 5,
+    "radius": 175,
+    "spacing": -3.4,
+    "amp": 45,
+    "rotSpeed": 0,
+    "phaseStep": 6,
+    "pulseMin": 15,
+    "pulseSpeed": 60,
+    "pulseSpread": 25,
+    "stroke": 2.4,
+    "glow": 100,
+    "scale": 66,
+    "waveform": "cosine",
+    "rotDir": "same",
+    "symmetry": 1,
+    "colorMode": "alternate",
+    "bg": "#ebebeb",
+    "ringA": "#78b4ff",
+    "ringB": "#d357fe"
+}

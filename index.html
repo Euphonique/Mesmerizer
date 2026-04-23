@@ -1,0 +1,2910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mesmerizer</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    overflow: hidden;
+    color: #cfe;
+    font-family: system-ui, sans-serif;
+    background: var(--bg, #0a1a28);
+  }
+  .stage-wrap {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  canvas#stage {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Thin modern scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(150, 220, 240, 0.25) transparent;
+  }
+  *::-webkit-scrollbar { width: 5px; height: 5px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: rgba(150, 220, 240, 0.25);
+    border-radius: 4px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(150, 220, 240, 0.45);
+  }
+
+  /* Control panels */
+  .panel {
+    position: fixed;
+    top: 16px; left: 16px;
+    background: rgba(10, 20, 30, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(150, 220, 240, 0.15);
+    border-radius: 10px;
+    padding: 14px 16px;
+    width: 300px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    font-size: 12px;
+    z-index: 10;
+    user-select: none;
+  }
+  .panel.hidden { display: none; }
+  .panel-right {
+    left: auto;
+    right: 16px;
+  }
+  .panel-bottom {
+    top: auto;
+    bottom: 56px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    max-width: calc(100vw - 32px);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 24px;
+    padding: 12px 18px;
+    overflow-y: visible;
+  }
+  .panel-bottom .bottom-section { display: flex; align-items: center; gap: 8px; }
+  .panel-bottom input[type="range"] { width: 120px; }
+  .panel-bottom .btn { white-space: nowrap; }
+  .bottom-ctrl { display: inline-flex; align-items: center; gap: 6px; }
+  .speed-row { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* Panel toggle buttons */
+  .panel-toggle {
+    position: fixed;
+    top: 16px;
+    z-index: 11;
+    width: 32px; height: 32px;
+    background: rgba(10, 20, 30, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(150, 220, 240, 0.15);
+    border-radius: 8px;
+    color: #a8e4f2;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.15s;
+    padding: 0;
+    line-height: 1;
+  }
+  .panel-toggle:hover { background: rgba(10, 20, 30, 0.95); }
+  .panel-toggle-left       { left: 16px; }
+  .panel-toggle-randomize  { left: 54px; }
+  .panel-toggle-actions    { left: 50%; top: auto; bottom: 16px; transform: translateX(-50%); }
+  .panel-toggle-popout      { right: 92px; }
+  .panel-toggle-fullscreen  { right: 54px; }
+  .panel-toggle-right      { right: 16px; }
+  .panel h2 {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: #a8e4f2;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .panel h2:first-child {
+    position: relative; justify-content: center;
+  }
+  .panel h2:first-child .bulk-toggles {
+    position: absolute; right: 0;
+  }
+  .panel h2:not(:first-child) {
+    margin-top: 16px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(150, 220, 240, 0.12);
+  }
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 4px;
+    background: rgba(91,212,230,0.12);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 0; height: 0;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 0; height: 0;
+    border: none; background: transparent;
+  }
+  input[type=range]::-moz-range-track {
+    height: 6px;
+    border-radius: 4px;
+    background: rgba(91,212,230,0.12);
+  }
+  input[type=range]::-moz-range-progress {
+    height: 6px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, rgba(91,212,230,0.25), #5bd4e6);
+  }
+  .row-select { grid-template-columns: 1fr 48px 22px 22px; }
+  .row-select .custom-select { grid-column: 1 / 3; }
+  .row-select > select {
+    display: none;
+  }
+  .custom-select {
+    position: relative;
+    width: 100%;
+  }
+  .panel-bottom .custom-select {
+    width: auto;
+    min-width: 100px;
+  }
+  .custom-select-trigger {
+    background: rgba(10, 20, 30, 0.85);
+    color: #d0f2f9;
+    border: 1px solid rgba(150, 220, 240, 0.15);
+    border-radius: 6px;
+    padding: 5px 24px 5px 7px;
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .custom-select-trigger::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 4px solid transparent;
+    border-top: 5px solid #a8e4f2;
+  }
+  .custom-select-dropdown {
+    display: none;
+    position: absolute;
+    left: 0; right: 0;
+    top: calc(100% + 4px);
+    background: rgba(10, 20, 30, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(150, 220, 240, 0.15);
+    border-radius: 8px;
+    padding: 4px;
+    z-index: 100;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .custom-select.open .custom-select-dropdown {
+    display: block;
+  }
+  .custom-select.drop-up .custom-select-dropdown {
+    top: auto;
+    bottom: calc(100% + 4px);
+  }
+  .custom-select-option {
+    padding: 5px 8px;
+    border-radius: 5px;
+    color: #d0f2f9;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .custom-select-option:hover {
+    background: rgba(91, 212, 230, 0.2);
+  }
+  .custom-select-option.active {
+    background: #5bd4e6;
+    color: #0a1a28;
+  }
+  .row > .val {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: #e0f4fa;
+    font-size: 11px;
+  }
+  /* old .group-sep hr style replaced by flex div above */
+  .color-row > label { color: #b9d8e4; font-size: 11px; }
+  .color-row > input[type=color] {
+    width: 42px; height: 24px;
+    padding: 0;
+    border: 1px solid rgba(150, 220, 240, 0.3);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  /* Lock toggles */
+  .lock {
+    display: flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px;
+    background: none; border: none; padding: 0;
+    cursor: pointer; font-size: 13px; line-height: 1;
+    opacity: 0.35; transition: opacity 0.15s;
+    color: #b9d8e4;
+  }
+  .lock:hover { opacity: 0.6; }
+  .lock.locked { opacity: 0.9; color: #ffcf70; }
+  .anim-toggle {
+    display: flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px;
+    background: none; border: none; padding: 0;
+    cursor: pointer; font-size: 11px; line-height: 1;
+    opacity: 0.35; transition: opacity 0.15s;
+    color: #b9d8e4;
+  }
+  .anim-toggle:hover { opacity: 0.6; }
+  .anim-toggle.active { opacity: 0.9; color: #78e0a0; }
+
+  /* Bulk toggle buttons (lock-all / animate-all) */
+  .bulk-toggles {
+    display: grid; grid-template-columns: 22px 22px;
+    gap: 0 8px; margin-left: auto; flex-shrink: 0;
+  }
+  .bulk-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px;
+    background: none; border: none; padding: 0;
+    cursor: pointer; line-height: 1;
+    opacity: 0.4; transition: opacity 0.15s;
+    color: #b9d8e4;
+  }
+  .bulk-btn.bulk-lock-btn { font-size: 13px; }
+  .bulk-btn.bulk-anim-btn { font-size: 11px; }
+  .bulk-btn:hover { opacity: 0.7; background: rgba(150, 220, 240, 0.08); }
+  .bulk-btn.all-on { opacity: 0.9; }
+  .bulk-btn.bulk-lock-btn.all-on { color: #ffcf70; }
+  .bulk-btn.bulk-anim-btn.all-on { color: #78e0a0; }
+  .group-sep {
+    display: flex; align-items: center; gap: 8px;
+    margin: 18px 0 14px; border: none;
+    cursor: pointer; user-select: none;
+  }
+  .group-sep .sep-arrow {
+    font-size: 10px; color: rgb(255, 180, 60);
+    transition: transform 0.2s; display: inline-block;
+  }
+  .group-sep.collapsed .sep-arrow {
+    transform: rotate(-90deg);
+  }
+  .group-sep .sep-label {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
+    color: rgb(255, 180, 60); text-transform: uppercase;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .group-sep::after {
+    content: ''; flex: 1; height: 0;
+    border-top: 1px solid rgba(150, 220, 240, 0.12);
+    order: 1;
+  }
+  .group-sep .bulk-toggles { order: 2; margin-left: 4px; }
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 48px 22px 22px;
+    gap: 6px 8px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .row > label {
+    grid-column: 1 / -1;
+    color: #b9d8e4;
+    font-size: 11px;
+  }
+  .color-row {
+    display: grid;
+    grid-template-columns: 1fr auto 22px 22px;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  /* Randomize button */
+  .btn.randomize {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin-top: 10px; margin-bottom: 4px;
+    background: rgba(255, 207, 112, 0.12);
+    border-color: rgba(255, 207, 112, 0.4);
+    color: #ffe8a8;
+    font-size: 12px;
+  }
+  .btn.randomize:hover { background: rgba(255, 207, 112, 0.22); }
+  .btn.randomize .dice { font-size: 15px; }
+
+  .btn {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: rgba(91, 212, 230, 0.15);
+    border: 1px solid rgba(91, 212, 230, 0.4);
+    color: #d0f2f9;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn:hover { background: rgba(91, 212, 230, 0.25); }
+  .btn.copy { background: rgba(91, 212, 230, 0.08); }
+  .btn.copy.ok, .btn.ok {
+    background: rgba(120, 230, 160, 0.25);
+    border-color: rgba(120, 230, 160, 0.5);
+  }
+  .btn.flash-save {
+    background: rgba(100, 230, 130, 0.45);
+    border-color: rgba(100, 230, 130, 0.7);
+    color: #b5ffd0;
+    transition: background 0s, border-color 0s, color 0s;
+  }
+  .btn.flash-save.fade {
+    background: rgba(91, 212, 230, 0.15);
+    border-color: rgba(91, 212, 230, 0.4);
+    color: #d0f2f9;
+    transition: background 1s ease, border-color 1s ease, color 1s ease;
+  }
+  .btn.flash-delete {
+    background: rgba(230, 90, 90, 0.45);
+    border-color: rgba(230, 90, 90, 0.7);
+    color: #ffc0c0;
+    transition: background 0s, border-color 0s, color 0s;
+  }
+  .btn.flash-delete.fade {
+    background: rgba(230, 100, 100, 0.1);
+    border-color: rgba(230, 100, 100, 0.35);
+    color: #d0f2f9;
+    transition: background 1s ease, border-color 1s ease, color 1s ease;
+  }
+
+  .config-box {
+    width: 100%;
+    box-sizing: border-box;
+    height: 220px;
+    margin-top: 6px;
+    background: rgba(0, 0, 0, 0.35);
+    color: #d0f2f9;
+    border: 1px solid rgba(150, 220, 240, 0.2);
+    border-radius: 6px;
+    padding: 8px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    resize: vertical;
+    white-space: pre;
+  }
+
+  /* Preset grid */
+  .preset-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 10px;
+    max-height: 480px;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+  .preset-card {
+    position: relative;
+    border: 1px solid rgba(150, 220, 240, 0.15);
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    background: rgba(0, 0, 0, 0.3);
+  }
+  .preset-card:hover {
+    border-color: rgba(91, 212, 230, 0.5);
+    box-shadow: 0 0 10px rgba(91, 212, 230, 0.15);
+  }
+  .preset-card.active {
+    border-color: rgba(91, 212, 230, 0.8);
+    box-shadow: 0 0 12px rgba(91, 212, 230, 0.25);
+  }
+  .preset-card img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+  }
+  .preset-card .preset-label {
+    padding: 3px 4px;
+    font-size: 9px;
+    color: #c0e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.4);
+  }
+  .preset-card .preset-badge {
+    position: absolute;
+    top: 3px; right: 3px;
+    font-size: 8px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #97b8c4;
+  }
+
+  .preset-save-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .preset-save-row > input[type=text] {
+    background: rgba(0, 0, 0, 0.35);
+    color: #d0f2f9;
+    border: 1px solid rgba(150, 220, 240, 0.2);
+    border-radius: 6px;
+    padding: 5px 7px;
+    font-size: 11px;
+    font-family: inherit;
+    min-width: 0;
+  }
+  .preset-save-row > button { margin-top: 0; width: auto; padding: 5px 10px; }
+  .btn.preset-delete {
+    background: rgba(230, 100, 100, 0.1);
+    border-color: rgba(230, 100, 100, 0.35);
+    color: #f2c0c0;
+  }
+  .btn.preset-delete:hover { background: rgba(230, 100, 100, 0.2); }
+  .server-settings {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 8px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(150, 220, 240, 0.15);
+    border-radius: 6px;
+  }
+  .server-settings input[type=text],
+  .server-settings input[type=password] {
+    background: rgba(0, 0, 0, 0.35);
+    color: #d0f2f9;
+    border: 1px solid rgba(150, 220, 240, 0.2);
+    border-radius: 5px;
+    padding: 5px 7px;
+    font-size: 11px;
+    font-family: inherit;
+  }
+  .server-status {
+    font-size: 10.5px;
+    color: #97b8c4;
+    min-height: 14px;
+  }
+  .server-status.ok  { color: #8ee0a8; }
+  .server-status.err { color: #f0a0a0; }
+  .server-settings .btn { margin-top: 4px; }
+
+  /* Embed section */
+  .embed-hint {
+    margin: 6px 0 8px 0;
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: #97b8c4;
+  }
+  .embed-hint code {
+    background: rgba(0,0,0,0.35);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #cfe;
+    font-size: 10.5px;
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 720px) {
+    .panel {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: auto;
+      max-height: 100vh;
+      border-radius: 0;
+      border: none;
+      padding: 48px 16px 16px;
+      z-index: 10;
+    }
+    .panel-right {
+      left: 0;
+      right: 0;
+    }
+    .panel-toggle {
+      top: 10px;
+      z-index: 12;
+      width: 38px; height: 38px;
+      font-size: 18px;
+    }
+    .panel-toggle-left       { left: 10px; }
+    .panel-toggle-randomize  { left: 54px; }
+    .panel-toggle-actions    { left: 50%; top: auto; bottom: 10px; transform: translateX(-50%); }
+    .panel-toggle-popout      { display: none; }
+    .panel-toggle-fullscreen  { right: 54px; }
+    .panel-toggle-right      { right: 10px; }
+    .panel-bottom {
+      top: auto; left: 0; right: 0; bottom: 52px;
+      width: auto; max-width: none; max-height: 60vh;
+      border-radius: 10px 10px 0 0; border: none;
+      padding: 16px;
+      transform: none;
+      display: block;
+      overflow-y: auto;
+    }
+    .panel-bottom .bottom-section {
+      flex-wrap: wrap;
+    }
+    .panel-bottom input[type="range"] {
+      width: 100%;
+    }
+    .bottom-ctrl {
+      flex-direction: column;
+      align-items: flex-start;
+      width: 100%;
+    }
+    .bottom-ctrl-touch .custom-select,
+    .bottom-ctrl-touch select {
+      width: 100% !important;
+    }
+    .speed-row {
+      width: 100%;
+    }
+    .speed-row input[type="range"] {
+      flex: 1;
+    }
+
+    input[type=range] {
+      height: 28px;
+    }
+    .btn {
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+    .btn.randomize {
+      font-size: 14px;
+    }
+    .lock, .anim-toggle {
+      width: 28px; height: 28px;
+      font-size: 15px;
+    }
+    .bulk-toggles {
+      grid-template-columns: 28px 28px;
+    }
+    .bulk-btn {
+      width: 28px; height: 28px;
+    }
+    .bulk-btn.bulk-lock-btn { font-size: 15px; }
+    .bulk-btn.bulk-anim-btn { font-size: 13px; }
+    .row {
+      grid-template-columns: 1fr 48px 28px 28px;
+      margin-bottom: 12px;
+    }
+    .row > label {
+      font-size: 12px;
+    }
+    .row-select { grid-template-columns: 1fr 48px 28px 28px; }
+    .row-select .custom-select { grid-column: 1 / 3; }
+    .color-row {
+      grid-template-columns: 1fr auto 28px 28px;
+      margin-bottom: 10px;
+    }
+    .color-row > label { font-size: 12px; }
+    .color-row > input[type=color] {
+      width: 48px; height: 30px;
+    }
+    .preset-grid {
+      grid-template-columns: repeat(4, 1fr);
+      max-height: 50vh;
+    }
+    .preset-card .preset-label {
+      font-size: 10px;
+      padding: 4px 5px;
+    }
+    .config-box {
+      font-size: 12px;
+    }
+  }
+
+  @media (max-width: 400px) {
+    .preset-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .app-title {
+    position: fixed;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(168, 228, 242, 0.35);
+    pointer-events: none;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="app_title" class="app-title">Mesmerizer</div>
+<div class="stage-wrap">
+  <canvas id="stage" width="700" height="700"></canvas>
+</div>
+
+<button class="panel-toggle panel-toggle-left" id="toggle_left" title="Toggle parameters">&#x2699;</button>
+<button class="panel-toggle panel-toggle-actions" id="toggle_bottom" title="Toggle actions">&#x25B6;</button>
+<button class="panel-toggle panel-toggle-randomize" id="btn_randomize_float" title="Randomize unlocked"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="4.5" cy="4.5" r="1.2"/><circle cx="11.5" cy="4.5" r="1.2"/><circle cx="4.5" cy="11.5" r="1.2"/><circle cx="11.5" cy="11.5" r="1.2"/><circle cx="8" cy="8" r="1.2"/></svg></button>
+<button class="panel-toggle panel-toggle-popout" id="btn_popout" title="Pop out controls"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9,1 15,1 15,7"/><line x1="15" y1="1" x2="8" y2="8"/><polyline points="6,2 2,2 2,14 14,14 14,10"/></svg></button>
+<button class="panel-toggle panel-toggle-fullscreen" id="btn_fullscreen" title="Fullscreen"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="1,5 1,1 5,1"/><polyline points="11,1 15,1 15,5"/><polyline points="15,11 15,15 11,15"/><polyline points="5,15 1,15 1,11"/></svg></button>
+<button class="panel-toggle panel-toggle-right" id="toggle_right" title="Toggle presets"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4.414L11.586 1H2zm0 1h1v4h8V2h.586L14 4.414V14H2V2zm3 0v3h4V2H5zm1 8a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"/></svg></button>
+
+<div class="panel" id="panel_left">
+  <h2><span>Ring parameters</span><span class="bulk-toggles"><button class="bulk-btn bulk-lock-btn" data-scope="all" title="Lock all / Unlock all">&#x1F513;</button><button class="bulk-btn bulk-anim-btn" data-scope="all" title="Animate all / Stop all">&#x2728;</button></span></h2>
+
+  <!-- Global -->
+  <div class="row">
+    <label>Scale (%)</label>
+    <input id="p_scale"       type="range" min="10" max="300" step="1"    value="47">
+    <span  id="v_scale"       class="val">47</span>
+    <button class="lock" data-for="p_scale" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_scale" title="Animate">&#x2728;</button>
+  </div>
+
+  <div class="group-sep" data-section="shape"><span class="sep-arrow">&#x25BC;</span><span class="sep-label">Shape</span><span class="bulk-toggles"><button class="bulk-btn bulk-lock-btn" data-scope="section" title="Lock section">&#x1F513;</button><button class="bulk-btn bulk-anim-btn" data-scope="section" title="Animate section">&#x2728;</button></span></div>
+
+  <!-- Shape -->
+  <div class="row">
+    <label>Base radius</label>
+    <input id="p_radius"      type="range" min="0" max="230" step="1"    value="175">
+    <span  id="v_radius"      class="val">175</span>
+    <button class="lock" data-for="p_radius" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_radius" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row">
+    <label>Lobes (corners)</label>
+    <input id="p_lobes"       type="range" min="2"  max="10" step="1"     value="3">
+    <span  id="v_lobes"       class="val">3</span>
+    <button class="lock" data-for="p_lobes" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_lobes" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row">
+    <label>Asymmetry</label>
+    <input id="p_asymmetry"    type="range" min="0"  max="100" step="1"    value="0">
+    <span  id="v_asymmetry"    class="val">0</span>
+    <button class="lock" data-for="p_asymmetry" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_asymmetry" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row">
+    <label>Ring count</label>
+    <input id="p_count"       type="range" min="1"  max="20" step="1"     value="4">
+    <span  id="v_count"       class="val">4</span>
+    <button class="lock" data-for="p_count" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_count" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row">
+    <label>Ring spacing</label>
+    <input id="p_spacing"     type="range" min="-50" max="50"   step="0.1"  value="-1.2">
+    <span  id="v_spacing"     class="val">-1.2</span>
+    <button class="lock" data-for="p_spacing" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_spacing" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row">
+    <label>Phase offset per ring (°)</label>
+    <input id="p_phasestep"   type="range" min="-60" max="60"  step="0.5"  value="26.5">
+    <span  id="v_phasestep"   class="val">26.5</span>
+    <button class="lock" data-for="p_phasestep" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_phasestep" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row row-select">
+    <label>Waveform</label>
+    <select id="p_waveform">
+      <option value="cosine">Cosine (smooth)</option>
+      <option value="triangle">Triangle (angular)</option>
+      <option value="sawtooth">Sawtooth (ramp)</option>
+      <option value="square">Square (blocky)</option>
+      <option value="spiky">Spiky (sharp peaks)</option>
+      <option value="petal">Petal (rounded bulges)</option>
+      <option value="bounce">Bounce (half-wave bumps)</option>
+      <option value="gear">Gear (narrow teeth)</option>
+      <option value="steps">Steps (staircase)</option>
+      <option value="pinch">Pinch (deep valleys)</option>
+    </select>
+    <button class="lock" data-for="p_waveform" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_waveform" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row">
+    <label>Amplitude (max)</label>
+    <input id="p_amp"         type="range" min="0"  max="80"  step="1"    value="29">
+    <span  id="v_amp"         class="val">29</span>
+    <button class="lock" data-for="p_amp" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_amp" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row row-select">
+    <label>Symmetry</label>
+    <select id="p_symmetry">
+      <option value="1">Off</option>
+      <option value="2">2-fold</option>
+      <option value="4">4-fold</option>
+      <option value="6">6-fold</option>
+      <option value="8">8-fold</option>
+    </select>
+    <button class="lock" data-for="p_symmetry" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_symmetry" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row">
+    <label>Symmetry rotation (°)</label>
+    <input id="p_symrot"      type="range" min="-60" max="60" step="0.5"   value="0">
+    <span  id="v_symrot"      class="val">0</span>
+    <button class="lock" data-for="p_symrot" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_symrot" title="Animate">&#x2728;</button>
+  </div>
+
+  <div class="group-sep collapsed" data-section="rotation"><span class="sep-arrow">&#x25BC;</span><span class="sep-label">Rotation</span><span class="bulk-toggles"><button class="bulk-btn bulk-lock-btn" data-scope="section" title="Lock section">&#x1F513;</button><button class="bulk-btn bulk-anim-btn" data-scope="section" title="Animate section">&#x2728;</button></span></div>
+
+  <!-- Rotation -->
+  <div class="row">
+    <label>Rotation speed</label>
+    <input id="p_rotspeed"    type="range" min="-100" max="100" step="1"   value="0">
+    <span  id="v_rotspeed"    class="val">0</span>
+    <button class="lock" data-for="p_rotspeed" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_rotspeed" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row row-select">
+    <label>Rotation direction</label>
+    <select id="p_rotdir">
+      <option value="same">All same</option>
+      <option value="alternate" selected>Alternate CW/CCW</option>
+    </select>
+    <button class="lock" data-for="p_rotdir" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_rotdir" title="Animate">&#x2728;</button>
+  </div>
+
+  <div class="group-sep collapsed" data-section="pulse"><span class="sep-arrow">&#x25BC;</span><span class="sep-label">Pulse</span><span class="bulk-toggles"><button class="bulk-btn bulk-lock-btn" data-scope="section" title="Lock section">&#x1F513;</button><button class="bulk-btn bulk-anim-btn" data-scope="section" title="Animate section">&#x2728;</button></span></div>
+
+  <!-- Pulse -->
+  <div class="row">
+    <label>Pulse: min (% of max)</label>
+    <input id="p_pulsemin"    type="range" min="0"  max="100" step="1"    value="15">
+    <span  id="v_pulsemin"    class="val">15</span>
+    <button class="lock" data-for="p_pulsemin" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_pulsemin" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row">
+    <label>Pulse: base speed</label>
+    <input id="p_pulsespeed"  type="range" min="-200" max="200" step="1"   value="60">
+    <span  id="v_pulsespeed"  class="val">60</span>
+    <button class="lock" data-for="p_pulsespeed" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_pulsespeed" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row">
+    <label>Pulse: desync between rings</label>
+    <input id="p_pulsespread" type="range" min="0"  max="100" step="1"    value="25">
+    <span  id="v_pulsespread" class="val">25</span>
+    <button class="lock" data-for="p_pulsespread" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_pulsespread" title="Animate">&#x2728;</button>
+  </div>
+
+  <div class="group-sep collapsed" data-section="appearance"><span class="sep-arrow">&#x25BC;</span><span class="sep-label">Appearance</span><span class="bulk-toggles"><button class="bulk-btn bulk-lock-btn" data-scope="section" title="Lock section">&#x1F513;</button><button class="bulk-btn bulk-anim-btn" data-scope="section" title="Animate section">&#x2728;</button></span></div>
+
+  <!-- Appearance -->
+  <div class="row">
+    <label>Stroke width</label>
+    <input id="p_stroke"      type="range" min="0.5" max="6" step="0.1"   value="2.4">
+    <span  id="v_stroke"      class="val">2.4</span>
+    <button class="lock" data-for="p_stroke" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_stroke" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row">
+    <label>Glow strength (%)</label>
+    <input id="p_glow"        type="range" min="0"  max="200" step="1"    value="74">
+    <span  id="v_glow"        class="val">74</span>
+    <button class="lock" data-for="p_glow" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_glow" title="Animate">&#x2728;</button>
+  </div>
+
+  <div class="group-sep collapsed" data-section="colors"><span class="sep-arrow">&#x25BC;</span><span class="sep-label">Colors</span><span class="bulk-toggles"><button class="bulk-btn bulk-lock-btn" data-scope="section" title="Lock section">&#x1F513;</button><button class="bulk-btn bulk-anim-btn" data-scope="section" title="Animate section">&#x2728;</button></span></div>
+  <div class="row row-select">
+    <label>Color mode</label>
+    <select id="p_colormode">
+      <option value="alternate">Alternate A/B</option>
+      <option value="gradient" selected>Gradient A&rarr;B</option>
+    </select>
+    <button class="lock" data-for="p_colormode" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_colormode" title="Animate">&#x2728;</button>
+  </div>
+  <div class="color-row">
+    <label>Background</label>
+    <input id="c_bg"     type="color" value="#0a1a28">
+    <button class="lock" data-for="c_bg" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="c_bg" title="Animate">&#x2728;</button>
+  </div>
+  <div class="color-row">
+    <label>Ring A (first / even)</label>
+    <input id="c_ringA"  type="color" value="#78b4ff">
+    <button class="lock" data-for="c_ringA" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="c_ringA" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row">
+    <label>Ring A opacity</label>
+    <input id="p_opacityA"   type="range" min="10" max="100" step="1" value="95">
+    <span  id="v_opacityA"   class="val">95</span>
+    <button class="lock" data-for="p_opacityA" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_opacityA" title="Animate">&#x2728;</button>
+  </div>
+  <div class="color-row">
+    <label>Ring B (last / odd)</label>
+    <input id="c_ringB"  type="color" value="#78f0c8">
+    <button class="lock" data-for="c_ringB" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="c_ringB" title="Animate">&#x2728;</button>
+  </div>
+  <div class="row">
+    <label>Ring B opacity</label>
+    <input id="p_opacityB"   type="range" min="10" max="100" step="1" value="95">
+    <span  id="v_opacityB"   class="val">95</span>
+    <button class="lock" data-for="p_opacityB" title="Lock">&#x1F513;</button>
+    <button class="anim-toggle" data-for="p_opacityB" title="Animate">&#x2728;</button>
+  </div>
+
+
+</div>
+
+<div class="panel panel-bottom" id="panel_bottom">
+  <div class="bottom-section">
+    <button class="btn randomize" id="btn_randomize"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px;"><rect x="1" y="1" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="4.5" cy="4.5" r="1.2"/><circle cx="11.5" cy="4.5" r="1.2"/><circle cx="4.5" cy="11.5" r="1.2"/><circle cx="11.5" cy="11.5" r="1.2"/><circle cx="8" cy="8" r="1.2"/></svg> Randomize</button>
+    <button class="btn" id="btn_reset">Reset</button>
+    <button class="btn" id="btn_audio">&#x1F3B5; Audio</button>
+    <button class="btn" id="btn_animate">&#x2728; Animate</button>
+    <div class="bottom-ctrl bottom-ctrl-touch">
+      <label style="font-size:10.5px;color:#97b8c4;white-space:nowrap;">Touch</label>
+      <select id="p_touchmode">
+        <option value="off">Off</option>
+        <option value="repulsion">Repulsion</option>
+        <option value="attraction">Attraction</option>
+        <option value="wake">Wake</option>
+        <option value="ripple">Ripple</option>
+        <option value="rotation">Rotation</option>
+        <option value="xypad">XY-Pad</option>
+      </select>
+    </div>
+    <div class="bottom-ctrl bottom-ctrl-speed">
+      <label style="font-size:10.5px;color:#97b8c4;white-space:nowrap;">Speed</label>
+      <div class="speed-row">
+        <input id="p_animspeed" type="range" min="5" max="200" step="1" value="30">
+        <span id="v_animspeed" class="val">30</span>
+      </div>
+    </div>
+    <div id="audio_status" style="font-size:10.5px;color:#97b8c4;min-height:14px;"></div>
+  </div>
+</div>
+
+<div class="panel panel-right" id="panel_right">
+  <h2>Presets</h2>
+
+  <div class="preset-grid" id="preset_grid"></div>
+  <div id="admin_controls" style="display:none;">
+    <div class="preset-save-row">
+      <input id="preset_name" type="text" placeholder="Preset name...">
+      <button class="btn preset-save" id="btn_preset_save" title="Save current settings under this name">Save</button>
+    </div>
+    <button class="btn preset-delete" id="btn_preset_delete">Delete selected preset</button>
+  </div>
+
+  <div class="group-sep collapsed" data-section="share"><span class="sep-arrow">&#x25BC;</span><span class="sep-label">Share</span></div>
+  <button class="btn" id="btn_share">Copy Link</button>
+
+  <div class="group-sep collapsed" data-section="configuration"><span class="sep-arrow">&#x25BC;</span><span class="sep-label">Configuration</span></div>
+  <textarea id="config_out" class="config-box" readonly></textarea>
+  <button class="btn copy" id="btn_copy">Copy</button>
+
+  <div class="group-sep collapsed" data-section="embed"><span class="sep-arrow">&#x25BC;</span><span class="sep-label">Embed</span></div>
+  <p class="embed-hint">
+    Download <code>mesmerizer.js</code>, include it on your page, and mount
+    the animation into any element. The current slider settings will be
+    used as the preset.
+  </p>
+  <button class="btn" id="btn_embed_download">Download mesmerizer.js</button>
+  <button class="btn" id="btn_embed_snippet">Copy HTML snippet</button>
+  <button class="btn" id="btn_export_svg">Export SVG</button>
+
+  <div class="group-sep collapsed" data-section="server"><span class="sep-arrow">&#x25BC;</span><span class="sep-label">Server</span></div>
+  <div class="server-settings">
+    <input id="server_token" type="password" placeholder="Server password">
+    <button class="btn" id="btn_login">Log in</button>
+    <div id="server_status" class="server-status"></div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('stage');
+const ctx    = canvas.getContext('2d');
+const SEGMENTS_SMOOTH = 160;
+const SEGMENTS_SHARP  = 720;
+
+const P = {};
+let rings = [];
+let startT = null;
+let rafId  = null;
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+const safariGlow = isSafari;
+
+const MAX_INTERNAL = 900;
+let drawW, drawH, drawScale;
+
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width  = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  drawW = rect.width;
+  drawH = rect.height;
+  drawScale = Math.min(drawW, drawH) / 500;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', () => { resizeCanvas(); });
+
+const SLIDERS = [
+  'p_count','p_lobes','p_radius','p_spacing','p_amp','p_asymmetry','p_symrot',
+  'p_rotspeed','p_phasestep','p_pulsemin','p_pulsespeed','p_pulsespread',
+  'p_stroke','p_glow','p_scale','p_opacityA','p_opacityB'
+];
+const COLORS = ['c_bg','c_ringA','c_ringB'];
+
+function $(id) {
+  return document.getElementById(id)
+    || (typeof popoutWin !== 'undefined' && popoutWin && !popoutWin.closed && popoutWin.document.getElementById(id))
+    || null;
+}
+
+// ---- Custom dropdowns ----
+function buildCustomSelect(sel) {
+  if (sel._customSelect) {
+    sel._customSelect.wrap.remove();
+    sel._customSelect = null;
+  }
+
+  const doc = sel.ownerDocument;
+  const wrap = doc.createElement('div');
+  wrap.className = 'custom-select';
+  if (sel.closest('.panel-bottom')) wrap.classList.add('drop-up');
+
+  const trigger = doc.createElement('div');
+  trigger.className = 'custom-select-trigger';
+  wrap.appendChild(trigger);
+
+  const dropdown = doc.createElement('div');
+  dropdown.className = 'custom-select-dropdown';
+  wrap.appendChild(dropdown);
+
+  function buildOptions() {
+    dropdown.innerHTML = '';
+    Array.from(sel.options).forEach(opt => {
+      const div = doc.createElement('div');
+      div.className = 'custom-select-option';
+      if (opt.value === sel.value) div.classList.add('active');
+      div.textContent = opt.textContent;
+      div.dataset.value = opt.value;
+      div.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sel.value = opt.value;
+        sel.dispatchEvent(new Event('change'));
+        trigger.textContent = opt.textContent;
+        dropdown.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('active'));
+        div.classList.add('active');
+        wrap.classList.remove('open');
+      });
+      dropdown.appendChild(div);
+    });
+    trigger.textContent = sel.options[sel.selectedIndex]?.textContent || '';
+  }
+
+  buildOptions();
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    doc.querySelectorAll('.custom-select.open').forEach(s => {
+      if (s !== wrap) s.classList.remove('open');
+    });
+    wrap.classList.toggle('open');
+  });
+
+  doc.addEventListener('click', () => {
+    doc.querySelectorAll('.custom-select.open').forEach(s => s.classList.remove('open'));
+  });
+
+  sel._customSelect = { wrap, trigger, buildOptions };
+  sel.parentNode.insertBefore(wrap, sel);
+  sel.style.display = 'none';
+}
+
+function initCustomSelects() {
+  const selects = [
+    document.getElementById('p_waveform'),
+    document.getElementById('p_rotdir'),
+    document.getElementById('p_symmetry'),
+    document.getElementById('p_colormode'),
+    document.getElementById('p_touchmode'),
+  ];
+  selects.forEach(sel => { if (sel) buildCustomSelect(sel); });
+}
+
+function syncCustomSelect(sel) {
+  if (sel._customSelect) {
+    const cs = sel._customSelect;
+    cs.trigger.textContent = sel.options[sel.selectedIndex]?.textContent || '';
+    cs.wrap.querySelectorAll('.custom-select-option').forEach(o => {
+      o.classList.toggle('active', o.dataset.value === sel.value);
+    });
+  }
+}
+
+initCustomSelects();
+
+// ---- Collapsible sections ----
+function getSectionRows(sep) {
+  const rows = [];
+  let node = sep.nextElementSibling;
+  while (node && !node.classList.contains('group-sep') && node.tagName !== 'H2') {
+    rows.push(node);
+    node = node.nextElementSibling;
+  }
+  return rows;
+}
+
+function toggleSection(sep, forceCollapsed) {
+  const collapsed = forceCollapsed !== undefined ? forceCollapsed : !sep.classList.contains('collapsed');
+  sep.classList.toggle('collapsed', collapsed);
+  const rows = getSectionRows(sep);
+  rows.forEach(row => { row.style.display = collapsed ? 'none' : ''; });
+}
+
+document.querySelectorAll('.group-sep[data-section]').forEach(sep => {
+  sep.addEventListener('click', (e) => {
+    if (e.target.closest('.bulk-toggles')) return;
+    toggleSection(sep);
+  });
+  if (sep.classList.contains('collapsed')) {
+    getSectionRows(sep).forEach(row => { row.style.display = 'none'; });
+  }
+});
+
+function getCollapsedSections() {
+  const sections = [];
+  document.querySelectorAll('.group-sep[data-section]').forEach(sep => {
+    if (sep.classList.contains('collapsed')) sections.push(sep.dataset.section);
+  });
+  return sections;
+}
+
+function setCollapsedSections(sections) {
+  document.querySelectorAll('.group-sep[data-section]').forEach(sep => {
+    const shouldCollapse = sections ? sections.includes(sep.dataset.section) : sep.dataset.section !== 'shape';
+    toggleSection(sep, shouldCollapse);
+  });
+}
+
+const WAVEFORMS = {
+  cosine:   x => Math.cos(x),
+  triangle: x => 1 - 2 * Math.acos(Math.cos(x)) / Math.PI,
+  sawtooth: x => { const n = x / (2 * Math.PI); return 2 * (n - Math.floor(n + 0.5)); },
+  square:   x => Math.cos(x) >= 0 ? 1 : -1,
+  spiky:    x => { const c = Math.cos(x); return c * c * c; },
+  petal:    x => Math.abs(Math.cos(x)),
+  bounce:   x => Math.abs(Math.sin(x)),
+  gear:     x => { const p = ((x % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); return p < Math.PI * 0.35 ? 1 : -1; },
+  steps:    x => { const c = Math.cos(x); return Math.round(c * 3) / 3; },
+  pinch:    x => { const c = Math.cos(x); return c * c * c * c * c; },
+};
+const WAVEFORM_NAMES = Object.keys(WAVEFORMS);
+
+function hexToRgb(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return m ? { r: parseInt(m[1],16), g: parseInt(m[2],16), b: parseInt(m[3],16) } : { r:255, g:255, b:255 };
+}
+function rgba(c, a) { return `rgba(${c.r}, ${c.g}, ${c.b}, ${a})`; }
+function lighten(c, amount) {
+  return {
+    r: Math.round(c.r + (255 - c.r) * amount),
+    g: Math.round(c.g + (255 - c.g) * amount),
+    b: Math.round(c.b + (255 - c.b) * amount),
+  };
+}
+
+function readParams() {
+  P.count       = +$('p_count').value;
+  P.lobes       = +$('p_lobes').value;
+  P.radius      = +$('p_radius').value;
+  P.spacing     = +$('p_spacing').value;
+  P.amp         = +$('p_amp').value;
+  P.asymmetry   = +$('p_asymmetry').value / 100;
+  P.symRot      = +$('p_symrot').value * Math.PI / 180;
+  P.rotSpeed    = +$('p_rotspeed').value    * 0.00001;
+  P.phaseStep   = +$('p_phasestep').value   * Math.PI / 180;
+  P.pulseMin    = +$('p_pulsemin').value    / 100;
+  P.pulseSpeed  = +$('p_pulsespeed').value  * 0.00001;
+  P.pulseSpread = +$('p_pulsespread').value * 0.00001;
+  P.stroke      = +$('p_stroke').value;
+  P.glow        = +$('p_glow').value / 100;
+  P.scale       = +$('p_scale').value / 100;
+  P.waveform    = $('p_waveform').value;
+  P.waveFn      = WAVEFORMS[P.waveform] || WAVEFORMS.cosine;
+  P.rotDir      = $('p_rotdir').value;
+  P.symmetry    = +$('p_symmetry').value;
+  P.colorMode   = $('p_colormode').value;
+  P.bg          = $('c_bg').value;
+  P.ringA       = $('c_ringA').value;
+  P.ringB       = $('c_ringB').value;
+  P.opacityA    = +$('p_opacityA').value / 100;
+  P.opacityB    = +$('p_opacityB').value / 100;
+}
+
+function updateSliderFill(el) {
+  const pct = ((el.value - el.min) / (el.max - el.min)) * 100;
+  const soft = Math.max(0, pct - 1);
+  el.style.background = `linear-gradient(90deg, rgba(91,212,230,0.25) 0%, #5bd4e6 ${soft}%, rgba(91,212,230,0.12) ${pct + 1}%)`;
+}
+
+function updateLabels() {
+  $('v_count').textContent       = P.count;
+  $('v_lobes').textContent       = P.lobes;
+  $('v_radius').textContent      = P.radius;
+  $('v_spacing').textContent     = P.spacing.toFixed(1);
+  $('v_amp').textContent         = P.amp;
+  $('v_asymmetry').textContent   = $('p_asymmetry').value;
+  $('v_symrot').textContent      = $('p_symrot').value;
+  $('v_rotspeed').textContent    = $('p_rotspeed').value;
+  $('v_phasestep').textContent   = $('p_phasestep').value;
+  $('v_pulsemin').textContent    = $('p_pulsemin').value;
+  $('v_pulsespeed').textContent  = $('p_pulsespeed').value;
+  $('v_pulsespread').textContent = $('p_pulsespread').value;
+  $('v_stroke').textContent      = P.stroke.toFixed(1);
+  $('v_glow').textContent        = $('p_glow').value;
+  $('v_scale').textContent       = $('p_scale').value;
+  $('v_opacityA').textContent    = $('p_opacityA').value;
+  $('v_opacityB').textContent    = $('p_opacityB').value;
+  SLIDERS.forEach(id => { const el = $(id); if (el) updateSliderFill(el); });
+}
+
+function applyBackground() {
+  document.body.style.background = P.bg;
+}
+
+// --- Touch/Mouse interaction ---
+const touch = { active: false, x: 0, y: 0, dragStartAngle: 0, rotationOffset: 0 };
+let pinchStartDist = 0;
+let pinchStartScale = 100;
+const ripples = [];
+
+function getTouchMode() {
+  const el = $('p_touchmode');
+  return el ? el.value : 'off';
+}
+
+function canvasPointerPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+function pinchDist(e) {
+  const dx = e.touches[0].clientX - e.touches[1].clientX;
+  const dy = e.touches[0].clientY - e.touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  const mode = getTouchMode();
+  if (mode === 'off') return;
+  const pos = canvasPointerPos(e);
+  touch.active = true;
+  touch.x = pos.x;
+  touch.y = pos.y;
+  if (mode === 'rotation') {
+    touch.dragStartAngle = Math.atan2(pos.y - drawH / 2, pos.x - drawW / 2);
+  }
+  if (mode === 'ripple') {
+    ripples.push({ x: pos.x, y: pos.y, time: performance.now(), strength: 40 });
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (!touch.active || getTouchMode() === 'off') return;
+  const pos = canvasPointerPos(e);
+  touch.x = pos.x;
+  touch.y = pos.y;
+  if (getTouchMode() === 'rotation') {
+    const angle = Math.atan2(pos.y - drawH / 2, pos.x - drawW / 2);
+    touch.rotationOffset += angle - touch.dragStartAngle;
+    touch.dragStartAngle = angle;
+  }
+  if (getTouchMode() === 'xypad') {
+    const xRatio = pos.x / drawW;
+    const yRatio = pos.y / drawH;
+    const ampEl = $('p_amp');
+    const phaseEl = $('p_phasestep');
+    if (ampEl) { ampEl.value = Math.round(xRatio * +ampEl.max); }
+    if (phaseEl) { phaseEl.value = Math.round((yRatio - 0.5) * 2 * +phaseEl.max); }
+    readParams(); updateLabels(); buildRings();
+  }
+});
+
+canvas.addEventListener('mouseup', () => { touch.active = false; });
+canvas.addEventListener('mouseleave', () => { touch.active = false; });
+
+canvas.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 2) {
+    pinchStartDist = pinchDist(e);
+    pinchStartScale = +($('p_scale')?.value || 100);
+    e.preventDefault();
+    return;
+  }
+  const mode = getTouchMode();
+  if (mode === 'off') return;
+  e.preventDefault();
+  const pos = canvasPointerPos(e);
+  touch.active = true;
+  touch.x = pos.x;
+  touch.y = pos.y;
+  if (mode === 'rotation') {
+    touch.dragStartAngle = Math.atan2(pos.y - drawH / 2, pos.x - drawW / 2);
+  }
+  if (mode === 'ripple') {
+    ripples.push({ x: pos.x, y: pos.y, time: performance.now(), strength: 40 });
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    const dist = pinchDist(e);
+    const ratio = dist / pinchStartDist;
+    const scaleEl = $('p_scale');
+    if (scaleEl) {
+      const newVal = Math.round(Math.max(+scaleEl.min, Math.min(+scaleEl.max, pinchStartScale * ratio)));
+      scaleEl.value = newVal;
+      readParams(); updateLabels(); buildRings();
+    }
+    return;
+  }
+  if (!touch.active || getTouchMode() === 'off') return;
+  e.preventDefault();
+  const pos = canvasPointerPos(e);
+  touch.x = pos.x;
+  touch.y = pos.y;
+  if (getTouchMode() === 'rotation') {
+    const angle = Math.atan2(pos.y - drawH / 2, pos.x - drawW / 2);
+    touch.rotationOffset += angle - touch.dragStartAngle;
+    touch.dragStartAngle = angle;
+  }
+  if (getTouchMode() === 'xypad') {
+    const xRatio = pos.x / drawW;
+    const yRatio = pos.y / drawH;
+    const ampEl = $('p_amp');
+    const phaseEl = $('p_phasestep');
+    if (ampEl) { ampEl.value = Math.round(xRatio * +ampEl.max); }
+    if (phaseEl) { phaseEl.value = Math.round((yRatio - 0.5) * 2 * +phaseEl.max); }
+    readParams(); updateLabels(); buildRings();
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+  if (e.touches.length < 2) pinchStartDist = 0;
+  if (e.touches.length === 0) touch.active = false;
+});
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const scaleEl = $('p_scale');
+  if (!scaleEl) return;
+  const delta = e.deltaY > 0 ? -8 : 8;
+  scaleEl.value = Math.max(+scaleEl.min, Math.min(+scaleEl.max, +scaleEl.value + delta));
+  readParams(); updateLabels(); buildRings();
+}, { passive: false });
+
+// Offscreen canvas for glow effect (drawn at reduced resolution)
+const glowCanvas = document.createElement('canvas');
+const glowCtx    = glowCanvas.getContext('2d');
+
+function hexToHsl(hex) {
+  const { r, g, b } = hexToRgb(hex);
+  const r1 = r / 255, g1 = g / 255, b1 = b / 255;
+  const max = Math.max(r1, g1, b1), min = Math.min(r1, g1, b1);
+  let h = 0, s = 0, l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r1) h = ((g1 - b1) / d + (g1 < b1 ? 6 : 0)) / 6;
+    else if (max === g1) h = ((b1 - r1) / d + 2) / 6;
+    else h = ((r1 - g1) / d + 4) / 6;
+  }
+  return { h: h * 360, s: s * 100, l: l * 100 };
+}
+
+function hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  s /= 100; l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(255 * Math.max(0, Math.min(1, color))).toString(16).padStart(2, '0');
+  };
+  return '#' + f(0) + f(8) + f(4);
+}
+
+function lerpHsl(hslA, hslB, t) {
+  let dh = hslB.h - hslA.h;
+  if (dh > 180) dh -= 360;
+  if (dh < -180) dh += 360;
+  return {
+    h: hslA.h + dh * t,
+    s: hslA.s + (hslB.s - hslA.s) * t,
+    l: hslA.l + (hslB.l - hslA.l) * t,
+  };
+}
+
+function rebuildRings() {
+  rings = [];
+
+  const hslA = hexToHsl(P.ringA);
+  const hslB = hexToHsl(P.ringB);
+
+  for (let i = 0; i < P.count; i++) {
+    let ringHex;
+    if (P.colorMode === 'gradient') {
+      const t = P.count > 1 ? i / (P.count - 1) : 0;
+      const hsl = lerpHsl(hslA, hslB, t);
+      ringHex = hslToHex(hsl.h, hsl.s, hsl.l);
+    } else {
+      ringHex = i % 2 === 0 ? P.ringA : P.ringB;
+    }
+
+    let ringOpacity;
+    if (P.colorMode === 'gradient') {
+      const t = P.count > 1 ? i / (P.count - 1) : 0;
+      ringOpacity = P.opacityA + (P.opacityB - P.opacityA) * t;
+    } else {
+      ringOpacity = (i % 2 === 0) ? P.opacityA : P.opacityB;
+    }
+    const strokeColor = rgba(lighten(hexToRgb(ringHex), 0.75), ringOpacity);
+    const rotSign = (P.rotDir === 'alternate' && i % 2 === 1) ? -1 : 1;
+
+    rings.push({
+      baseRadius:  P.radius + i * P.spacing,
+      phaseOffset: i * P.phaseStep,
+      pulseSpeed:  P.pulseSpeed + i * P.pulseSpread,
+      pulsePhase:  i * 1.3,
+      strokeColor: strokeColor,
+      glowColor:   ringHex,
+      rotSign:     rotSign,
+    });
+  }
+}
+
+function traceRing(target, ring, t, cx, cy, scale, aMul, pMul, phMul) {
+  const rot    = t * P.rotSpeed * ring.rotSign + ring.phaseOffset * (phMul || 1);
+  const pulse  = 0.5 + 0.5 * Math.sin(t * ring.pulseSpeed * (pMul || 1) + ring.pulsePhase);
+  const ampBase = P.amp * (aMul || 1) * (P.pulseMin + (1 - P.pulseMin) * pulse);
+  const asym   = P.asymmetry;
+  const lobes  = P.lobes;
+  const baseR  = ring.baseRadius;
+
+  const mode = getTouchMode();
+  const deform = (touch.active && (mode === 'repulsion' || mode === 'attraction' || mode === 'wake')) || (mode === 'ripple' && ripples.length > 0);
+  const txRel = (touch.x / drawW) * cx * 2;
+  const tyRel = (touch.y / drawH) * cy * 2;
+
+  const sharp = P.waveform === 'sawtooth' || P.waveform === 'square' || P.waveform === 'spiky' || P.waveform === 'gear' || P.waveform === 'steps';
+  const segs = sharp ? SEGMENTS_SHARP : SEGMENTS_SMOOTH;
+  const step = (Math.PI * 2) / segs;
+
+  if (deform) {
+    const fieldRadius = 250 * scale;
+    const fieldStrength = 45 * scale;
+    const dir = mode === 'attraction' ? -1 : 1;
+    const now = performance.now();
+
+    const xs = new Float32Array(segs + 1);
+    const ys = new Float32Array(segs + 1);
+    const ox = new Float32Array(segs + 1);
+    const oy = new Float32Array(segs + 1);
+    for (let i = 0; i <= segs; i++) {
+      const theta = i * step;
+      const lobeAmp = ampBase * (1 - asym * 0.5 * (1 - Math.cos(theta * Math.floor(lobes / 2))));
+      const r = baseR + lobeAmp * P.waveFn(lobes * (theta - rot));
+      xs[i] = cx + r * Math.cos(theta) * scale;
+      ys[i] = cy + r * Math.sin(theta) * scale;
+
+      if (mode === 'repulsion' || mode === 'attraction') {
+        const dx = xs[i] - txRel;
+        const dy = ys[i] - tyRel;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < fieldRadius && dist > 0.1) {
+          const u = dist / fieldRadius;
+          const smooth = u * u * (3 - 2 * u);
+          const force = (1 - smooth) * fieldStrength * dir;
+          ox[i] = (dx / dist) * force;
+          oy[i] = (dy / dist) * force;
+        }
+      }
+
+      if (mode === 'ripple') {
+        for (let ri = 0; ri < ripples.length; ri++) {
+          const rp = ripples[ri];
+          const rpx = (rp.x / drawW) * cx * 2;
+          const rpy = (rp.y / drawH) * cy * 2;
+          const dx = xs[i] - rpx;
+          const dy = ys[i] - rpy;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const age = (now - rp.time) / 1000;
+          const waveRadius = age * 300 * scale;
+          const ringWidth = 80 * scale;
+          const distFromWave = Math.abs(dist - waveRadius);
+          if (distFromWave < ringWidth && dist > 0.1) {
+            const envelope = (1 - distFromWave / ringWidth);
+            const fade = Math.max(0, 1 - age / 2);
+            const wave = Math.sin((dist - waveRadius) / (ringWidth * 0.3)) * envelope * fade * rp.strength * scale;
+            ox[i] += (dx / dist) * wave;
+            oy[i] += (dy / dist) * wave;
+          }
+        }
+      }
+
+      if (mode === 'wake') {
+        const dx = xs[i] - txRel;
+        const dy = ys[i] - tyRel;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const wakeRadius = 400 * scale;
+        if (dist < wakeRadius && dist > 0.1) {
+          const u = dist / wakeRadius;
+          const envelope = (1 - u) * (1 - u);
+          const wave = Math.sin(dist / (30 * scale)) * envelope * 60 * scale;
+          ox[i] += (dx / dist) * wave;
+          oy[i] += (dy / dist) * wave;
+        }
+      }
+    }
+    const kern = 8;
+    const sx = new Float32Array(segs + 1);
+    const sy = new Float32Array(segs + 1);
+    for (let i = 0; i <= segs; i++) {
+      let sumX = 0, sumY = 0, count = 0;
+      for (let k = -kern; k <= kern; k++) {
+        const j = ((i + k) % segs + segs) % segs;
+        sumX += ox[j]; sumY += oy[j]; count++;
+      }
+      sx[i] = sumX / count;
+      sy[i] = sumY / count;
+    }
+    target.beginPath();
+    for (let i = 0; i <= segs; i++) {
+      const px = xs[i] + sx[i];
+      const py = ys[i] + sy[i];
+      if (i === 0) target.moveTo(px, py); else target.lineTo(px, py);
+    }
+    target.closePath();
+  } else {
+    target.beginPath();
+    for (let i = 0; i <= segs; i++) {
+      const theta = i * step;
+      const lobeAmp = ampBase * (1 - asym * 0.5 * (1 - Math.cos(theta * Math.floor(lobes / 2))));
+      const r = baseR + lobeAmp * P.waveFn(lobes * (theta - rot));
+      const x = cx + r * Math.cos(theta) * scale;
+      const y = cy + r * Math.sin(theta) * scale;
+      if (i === 0) target.moveTo(x, y); else target.lineTo(x, y);
+    }
+    target.closePath();
+  }
+}
+
+function frame(now) {
+  if (startT === null) { startT = now; animLastT = now; }
+  tickAnimations(now);
+  const t = now - startT;
+
+  const audio = getAudioLevels();
+  const audioAmpMul   = audio ? (0.5 + audio.bass * 2.0) : 1;
+  const audioPulseMul = audio ? (0.5 + audio.mid * 3.0)  : 1;
+  const audioPhaseMul = audio ? (1.0 + audio.high * 2.0) : 1;
+
+  const w = drawW;
+  const h = drawH;
+  const cx = w / 2;
+  const cy = h / 2;
+  const scale = drawScale * P.scale;
+
+  while (ripples.length > 0 && performance.now() - ripples[0].time > 2000) {
+    ripples.shift();
+  }
+
+  // --- Glow pass: draw rings with thick stroke + blur on offscreen canvas ---
+  if (P.glow > 0) {
+    const glowRes = 0.5;
+    const gw = Math.round(w * glowRes);
+    const gh = Math.round(h * glowRes);
+    if (glowCanvas.width !== gw || glowCanvas.height !== gh) {
+      glowCanvas.width = gw;
+      glowCanvas.height = gh;
+    }
+    glowCtx.clearRect(0, 0, gw, gh);
+    glowCtx.lineCap = 'round';
+
+    const glowScale = scale * glowRes;
+    const gcx = gw / 2;
+    const gcy = gh / 2;
+    const blurAmount = 12 * P.glow;
+    const safariBlur = safariGlow ? 0.45 : 1.0;
+
+    glowCtx.filter = `blur(${blurAmount * glowRes * safariBlur}px)`;
+    glowCtx.lineWidth = (P.stroke + blurAmount * 0.3) * glowRes;
+
+    const glowFolds = P.symmetry;
+    const glowAngleStep = (Math.PI * 2) / glowFolds;
+
+    const glowTouchRot = getTouchMode() === 'rotation' ? touch.rotationOffset : 0;
+    for (let f = 0; f < glowFolds; f++) {
+      glowCtx.save();
+      glowCtx.translate(gcx, gcy);
+      glowCtx.rotate(f * glowAngleStep + glowTouchRot + f * P.symRot);
+      glowCtx.translate(-gcx, -gcy);
+      for (const ring of rings) {
+        const base = hexToRgb(ring.glowColor);
+        const bright = lighten(base, 0.3);
+        glowCtx.strokeStyle = rgba(bright, 0.7 * Math.min(1, P.glow) * safariBlur);
+        traceRing(glowCtx, ring, t, gcx, gcy, glowScale, audioAmpMul, audioPulseMul, audioPhaseMul);
+        glowCtx.stroke();
+      }
+      glowCtx.restore();
+    }
+    glowCtx.filter = 'none';
+
+    // Composite glow onto main canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(glowCanvas, 0, 0, gw, gh, 0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
+  } else {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // --- Sharp pass: draw crisp rings on main canvas ---
+  ctx.lineCap = 'round';
+  ctx.lineWidth = P.stroke;
+  ctx.shadowBlur = 0;
+
+  const folds = P.symmetry;
+  const angleStep = (Math.PI * 2) / folds;
+
+  const touchRot = getTouchMode() === 'rotation' ? touch.rotationOffset : 0;
+  for (let f = 0; f < folds; f++) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(f * angleStep + touchRot + f * P.symRot);
+    ctx.translate(-cx, -cy);
+    for (const ring of rings) {
+      ctx.strokeStyle = ring.strokeColor;
+      traceRing(ctx, ring, t, cx, cy, scale, audioAmpMul, audioPulseMul, audioPhaseMul);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  rafId = requestAnimationFrame(frame);
+}
+
+// Returns the current UI values as a plain preset object
+// (same shape as what the embed library accepts).
+function currentPreset() {
+  return {
+    count:       P.count,
+    lobes:       P.lobes,
+    radius:      P.radius,
+    spacing:     +P.spacing.toFixed(2),
+    amp:         P.amp,
+    asymmetry:   +$('p_asymmetry').value,
+    rotSpeed:    +$('p_rotspeed').value,
+    phaseStep:   +$('p_phasestep').value,
+    pulseMin:    +$('p_pulsemin').value,
+    pulseSpeed:  +$('p_pulsespeed').value,
+    pulseSpread: +$('p_pulsespread').value,
+    stroke:      +P.stroke.toFixed(2),
+    glow:        +$('p_glow').value,
+    scale:       +$('p_scale').value,
+    waveform:    P.waveform,
+    rotDir:      P.rotDir,
+    symmetry:    P.symmetry,
+    symRot:      +$('p_symrot').value,
+    colorMode:   P.colorMode,
+    bg:          P.bg,
+    ringA:       P.ringA,
+    ringB:       P.ringB,
+    opacityA:    +$('p_opacityA').value,
+    opacityB:    +$('p_opacityB').value,
+    animActive:  animRunning,
+    animParams:  Array.from(animSelected),
+    lockedParams: Array.from(locked),
+    touchMode:   getTouchMode(),
+    collapsed:   getCollapsedSections(),
+  };
+}
+
+function updateConfigBox() {
+  $('config_out').value = JSON.stringify(currentPreset(), null, 2);
+}
+
+function restart() {
+  readParams();
+  updateLabels();
+  applyBackground();
+  resizeCanvas();
+  rebuildRings();
+  updateConfigBox();
+  startT = null;
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(frame);
+}
+
+const SELECTS = ['p_waveform', 'p_rotdir', 'p_symmetry', 'p_colormode'];
+
+[...SLIDERS, ...COLORS].forEach(id => {
+  $(id).addEventListener('input', restart);
+});
+SELECTS.forEach(id => {
+  $(id).addEventListener('change', restart);
+});
+
+$('btn_reset').addEventListener('click', () => {
+  if (lastAppliedPresetCfg) {
+    applyPreset(lastAppliedPresetCfg);
+  } else {
+    SLIDERS.forEach(id => { const el = $(id); el.value = el.defaultValue; });
+    $('p_waveform').value = 'cosine';
+    $('p_rotdir').value = 'alternate';
+    $('p_symmetry').value = '1';
+    $('p_colormode').value = 'gradient';
+    ['p_waveform','p_rotdir','p_symmetry','p_colormode'].forEach(id => syncCustomSelect($(id)));
+    COLORS.forEach(id  => { const el = $(id); el.value = el.defaultValue; });
+    restart();
+  }
+});
+
+// ---- Lock toggles ----
+const locked = new Set();
+
+document.querySelectorAll('.lock').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.dataset.for;
+    if (locked.has(id)) {
+      locked.delete(id);
+      btn.classList.remove('locked');
+      btn.innerHTML = '&#x1F513;';
+      btn.title = 'Lock';
+    } else {
+      locked.add(id);
+      btn.classList.add('locked');
+      btn.innerHTML = '&#x1F512;';
+      btn.title = 'Unlock';
+    }
+  });
+});
+
+// ---- Animate toggles ----
+const animSelected = new Set();
+const animState = new Map();
+let animRunning = false;
+
+document.querySelectorAll('.anim-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.dataset.for;
+    if (animSelected.has(id)) {
+      animSelected.delete(id);
+      animState.delete(id);
+      btn.classList.remove('active');
+    } else {
+      animSelected.add(id);
+      if (animRunning) {
+        animState.set(id, { phase: Math.random() * Math.PI * 2, speed: 0.3 + Math.random() * 0.7 });
+      }
+      btn.classList.add('active');
+    }
+  });
+});
+
+// ---- Bulk toggle buttons (lock-all / animate-all per section) ----
+function updateBulkState(bulkBtn) {
+  const isLock = bulkBtn.classList.contains('bulk-lock-btn');
+  const scope = bulkBtn.dataset.scope;
+  const panel = bulkBtn.closest('.panel');
+  let targets;
+  if (scope === 'all') {
+    targets = Array.from(panel.querySelectorAll(isLock ? '.lock' : '.anim-toggle'));
+  } else {
+    const container = bulkBtn.closest('.group-sep, h2');
+    const allNodes = Array.from(panel.children);
+    const idx = allNodes.indexOf(container);
+    const cls = isLock ? '.lock' : '.anim-toggle';
+    targets = [];
+    for (let i = idx + 1; i < allNodes.length; i++) {
+      const node = allNodes[i];
+      if (node.classList.contains('group-sep') || node.tagName === 'H2') break;
+      node.querySelectorAll(cls).forEach(b => targets.push(b));
+    }
+  }
+  if (targets.length === 0) return;
+  const allOn = isLock
+    ? targets.every(b => b.classList.contains('locked'))
+    : targets.every(b => b.classList.contains('active'));
+  bulkBtn.classList.toggle('all-on', allOn);
+  bulkBtn.innerHTML = isLock
+    ? (allOn ? '&#x1F512;' : '&#x1F513;')
+    : '&#x2728;';
+}
+
+document.querySelectorAll('.bulk-lock-btn').forEach(bulkBtn => {
+  bulkBtn.addEventListener('click', () => {
+    const panel = bulkBtn.closest('.panel');
+    const scope = bulkBtn.dataset.scope;
+    let targets;
+    if (scope === 'all') {
+      targets = Array.from(panel.querySelectorAll('.lock'));
+    } else {
+      const container = bulkBtn.closest('.group-sep, h2');
+      const allNodes = Array.from(panel.children);
+      const idx = allNodes.indexOf(container);
+      targets = [];
+      for (let i = idx + 1; i < allNodes.length; i++) {
+        const node = allNodes[i];
+        if (node.classList.contains('group-sep') || node.tagName === 'H2') break;
+        node.querySelectorAll('.lock').forEach(b => targets.push(b));
+      }
+    }
+    const allLocked = targets.every(b => b.classList.contains('locked'));
+    targets.forEach(btn => {
+      const id = btn.dataset.for;
+      if (allLocked) {
+        locked.delete(id);
+        btn.classList.remove('locked');
+        btn.innerHTML = '&#x1F513;';
+        btn.title = 'Lock';
+      } else {
+        locked.add(id);
+        btn.classList.add('locked');
+        btn.innerHTML = '&#x1F512;';
+        btn.title = 'Unlock';
+      }
+    });
+    panel.querySelectorAll('.bulk-lock-btn').forEach(updateBulkState);
+  });
+});
+
+document.querySelectorAll('.bulk-anim-btn').forEach(bulkBtn => {
+  bulkBtn.addEventListener('click', () => {
+    const panel = bulkBtn.closest('.panel');
+    const scope = bulkBtn.dataset.scope;
+    let targets;
+    if (scope === 'all') {
+      targets = Array.from(panel.querySelectorAll('.anim-toggle'));
+    } else {
+      const container = bulkBtn.closest('.group-sep, h2');
+      const allNodes = Array.from(panel.children);
+      const idx = allNodes.indexOf(container);
+      targets = [];
+      for (let i = idx + 1; i < allNodes.length; i++) {
+        const node = allNodes[i];
+        if (node.classList.contains('group-sep') || node.tagName === 'H2') break;
+        node.querySelectorAll('.anim-toggle').forEach(b => targets.push(b));
+      }
+    }
+    const allActive = targets.every(b => b.classList.contains('active'));
+    targets.forEach(btn => {
+      const id = btn.dataset.for;
+      if (allActive) {
+        animSelected.delete(id);
+        animState.delete(id);
+        btn.classList.remove('active');
+      } else if (!animSelected.has(id)) {
+        animSelected.add(id);
+        if (animRunning) {
+          animState.set(id, { phase: Math.random() * Math.PI * 2, speed: 0.3 + Math.random() * 0.7 });
+        }
+        btn.classList.add('active');
+      }
+    });
+    panel.querySelectorAll('.bulk-anim-btn').forEach(updateBulkState);
+  });
+});
+
+// Update bulk button states when individual toggles change
+const origLockHandler = (btn) => {
+  const panel = btn.closest('.panel');
+  if (panel) panel.querySelectorAll('.bulk-lock-btn').forEach(updateBulkState);
+};
+const origAnimHandler = (btn) => {
+  const panel = btn.closest('.panel');
+  if (panel) panel.querySelectorAll('.bulk-anim-btn').forEach(updateBulkState);
+};
+document.querySelectorAll('.lock').forEach(btn => {
+  btn.addEventListener('click', () => origLockHandler(btn));
+});
+document.querySelectorAll('.anim-toggle').forEach(btn => {
+  btn.addEventListener('click', () => origAnimHandler(btn));
+});
+
+$('btn_animate').addEventListener('click', () => {
+  if (animRunning) {
+    animRunning = false;
+    animState.clear();
+    $('btn_animate').textContent = '\u2728 Animate selected';
+    $('btn_animate').classList.remove('ok');
+  } else {
+    if (animSelected.size === 0) return;
+    animSelected.forEach(id => {
+      animState.set(id, {
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.3 + Math.random() * 0.7,
+      });
+    });
+    animRunning = true;
+    $('btn_animate').textContent = '\u2728 Stop animation';
+    $('btn_animate').classList.add('ok');
+  }
+});
+
+let animLastT = 0;
+const SELECT_OPTIONS = {
+  p_waveform: WAVEFORM_NAMES,
+  p_rotdir: ['same', 'alternate'],
+  p_symmetry: ['1', '2', '4', '6', '8'],
+  p_colormode: ['alternate', 'gradient'],
+};
+
+function tickAnimations(now) {
+  if (!animRunning || animState.size === 0) return;
+  const dt = (now - animLastT) / 1000;
+  animLastT = now;
+  if (dt <= 0 || dt > 1) return;
+
+  const globalSpeed = (+($('p_animspeed')?.value || 30)) / 100;
+  const speedEl = $('p_animspeed');
+  if (speedEl) { $('v_animspeed').textContent = speedEl.value; updateSliderFill(speedEl); }
+
+  let needsRestart = false;
+
+  animState.forEach((state, id) => {
+    state.phase += dt * state.speed * globalSpeed;
+    const el = $(id);
+    if (!el) return;
+
+    if (el.tagName === 'SELECT') {
+      const opts = SELECT_OPTIONS[id];
+      if (!opts) return;
+      const cycleSpeed = 4 + Math.random() * 4;
+      if (Math.sin(state.phase * cycleSpeed) > 0.95) {
+        const cur = el.value;
+        const next = opts[Math.floor(Math.random() * opts.length)];
+        if (next !== cur) {
+          el.value = next;
+          syncCustomSelect(el);
+          needsRestart = true;
+        }
+      }
+      return;
+    }
+
+    if (el.type === 'color') {
+      const hsl = hexToHsl(el.value);
+      hsl.h = (hsl.h + dt * state.speed * globalSpeed * 30) % 360;
+      el.value = hslToHex(hsl.h, hsl.s, hsl.l);
+      needsRestart = true;
+      return;
+    }
+
+    const min = +el.min, max = +el.max, step = +el.step;
+    const range = max - min;
+    const drift = Math.sin(state.phase) * range * 0.004 * dt * 60;
+    let val = +el.value + drift;
+    if (val > max) { val = max; state.phase += Math.PI * 0.5; }
+    if (val < min) { val = min; state.phase += Math.PI * 0.5; }
+    val = Math.round((val - min) / step) * step + min;
+    el.value = val;
+    needsRestart = true;
+  });
+
+  if (needsRestart) {
+    readParams();
+    updateLabels();
+    applyBackground();
+    rebuildRings();
+    updateConfigBox();
+  }
+}
+
+// ---- Randomize ----
+function randomInRange(min, max, step) {
+  const r = (Math.random() + Math.random() + Math.random()) / 3;
+  const steps = Math.round((max - min) / step);
+  return min + Math.round(r * steps) * step;
+}
+
+function randomHexColor() {
+  const h = Math.random() * 360;
+  const s = 50 + Math.random() * 50;
+  const l = 35 + Math.random() * 40;
+  const a = s / 100, b = l / 100;
+  const f = n => {
+    const k = (n + h / 30) % 12;
+    const color = b - a * Math.min(b, 1 - b) * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(255 * color).toString(16).padStart(2, '0');
+  };
+  return '#' + f(0) + f(8) + f(4);
+}
+
+function doRandomize() {
+  SLIDERS.forEach(id => {
+    if (locked.has(id)) return;
+    const el = $(id);
+    el.value = randomInRange(+el.min, +el.max, +el.step);
+  });
+  COLORS.forEach(id => {
+    if (locked.has(id)) return;
+    $(id).value = randomHexColor();
+  });
+  if (!locked.has('p_waveform')) {
+    $('p_waveform').value = WAVEFORM_NAMES[Math.floor(Math.random() * WAVEFORM_NAMES.length)];
+  }
+  if (!locked.has('p_rotdir')) {
+    $('p_rotdir').value = Math.random() < 0.5 ? 'same' : 'alternate';
+  }
+  if (!locked.has('p_symmetry')) {
+    const symOpts = ['1','1','1','2','4','6','8'];
+    $('p_symmetry').value = symOpts[Math.floor(Math.random() * symOpts.length)];
+  }
+  if (!locked.has('p_colormode')) {
+    $('p_colormode').value = Math.random() < 0.5 ? 'alternate' : 'gradient';
+  }
+  ['p_waveform','p_rotdir','p_symmetry','p_colormode'].forEach(id => syncCustomSelect($(id)));
+  restart();
+}
+
+$('btn_randomize').addEventListener('click', doRandomize);
+$('btn_randomize_float').addEventListener('click', doRandomize);
+
+// ---- Copy config ----
+function flashButton(btn, label = 'Copied!') {
+  const original = btn.textContent;
+  btn.textContent = label;
+  btn.classList.add('ok');
+  setTimeout(() => { btn.textContent = original; btn.classList.remove('ok'); }, 1200);
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch {}
+    document.body.removeChild(ta);
+    return true;
+  }
+}
+$('btn_copy').addEventListener('click', async () => {
+  await copyText($('config_out').value);
+  flashButton($('btn_copy'));
+});
+
+// ---- Presets (folder-based) ----
+const SERVER_PASS_KEY = 'wavyRings.serverPass.v1';
+const PRESETS_PHP_URL = new URL('presets.php', location.href).href;
+const PRESETS_DIR_URL = new URL('presets/', location.href).href;
+const THUMB_SEGMENTS  = 120;
+
+let presetNames = [];
+let selectedPresetName = null;
+let lastAppliedPresetCfg = null;
+const presetSvgOverrides = {};
+
+function getServerPassword() {
+  return localStorage.getItem(SERVER_PASS_KEY) || '';
+}
+function setServerPassword(pass) {
+  localStorage.setItem(SERVER_PASS_KEY, pass);
+}
+
+function flashButton(btn, cls, tempText) {
+  const orig = btn.textContent;
+  btn.textContent = tempText;
+  btn.classList.remove('fade');
+  btn.classList.add(cls);
+  requestAnimationFrame(() => requestAnimationFrame(() => btn.classList.add('fade')));
+  setTimeout(() => {
+    btn.classList.remove(cls, 'fade');
+    btn.textContent = orig;
+  }, 1400);
+}
+
+function setServerStatus(kind, msg) {
+  const el = $('server_status');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.classList.remove('ok', 'err');
+  if (kind) el.classList.add(kind);
+}
+
+function rgbToHex(c) {
+  return '#' + [c.r, c.g, c.b].map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
+}
+
+function generatePresetSVG(cfg) {
+  const count     = cfg.count || 6;
+  const lobes     = cfg.lobes || 3;
+  const radius    = cfg.radius || 175;
+  const spacing   = cfg.spacing || 0;
+  const amp       = cfg.amp || 38;
+  const phaseStep = (cfg.phaseStep || 6) * Math.PI / 180;
+  const stroke    = cfg.stroke || 2.4;
+  const glow      = cfg.glow != null ? cfg.glow : 100;
+  const scale     = (cfg.scale != null ? cfg.scale : 100) / 100;
+  const wfName    = cfg.waveform || 'cosine';
+  const waveFn    = WAVEFORMS[wfName] || WAVEFORMS.cosine;
+  const symmetry  = cfg.symmetry || 1;
+  const colorMode = cfg.colorMode || 'alternate';
+  const bg        = cfg.bg || '#0a1a28';
+  const colA      = hexToRgb(cfg.ringA || '#78b4ff');
+  const colB      = hexToRgb(cfg.ringB || '#78f0c8');
+  const sharp     = wfName === 'sawtooth' || wfName === 'square' || wfName === 'spiky' || wfName === 'gear' || wfName === 'steps';
+  const segs      = sharp ? 360 : THUMB_SEGMENTS;
+
+  let defs = '';
+  if (glow > 0) {
+    const r = Math.max(3, glow / 10);
+    defs = `<defs><filter id="tg"><feGaussianBlur stdDeviation="${r.toFixed(1)}"/></filter></defs>`;
+  }
+
+  let paths = '';
+  for (let i = 0; i < count; i++) {
+    const t = count > 1 ? i / (count - 1) : 0;
+    let col;
+    if (colorMode === 'gradient') {
+      col = rgbToHex(lighten({ r: colA.r + (colB.r - colA.r) * t, g: colA.g + (colB.g - colA.g) * t, b: colA.b + (colB.b - colA.b) * t }, 0.75));
+    } else {
+      col = rgbToHex(lighten(i % 2 === 0 ? colA : colB, 0.75));
+    }
+    const baseR = radius + i * spacing;
+    const phase = i * phaseStep;
+    let d = '';
+    for (let j = 0; j <= segs; j++) {
+      const theta = (j / segs) * Math.PI * 2;
+      const symTheta = symmetry > 1 ? Math.floor(theta / (2 * Math.PI / symmetry)) * (2 * Math.PI / symmetry) + ((theta % (2 * Math.PI / symmetry) + 2 * Math.PI / symmetry) % (2 * Math.PI / symmetry)) : theta;
+      const r = (baseR + amp * waveFn(lobes * (symTheta - phase))) * scale;
+      const x = r * Math.cos(theta);
+      const y = r * Math.sin(theta);
+      d += (j === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+    }
+    d += 'Z';
+    if (glow > 0) {
+      paths += `<path d="${d}" fill="none" stroke="${col}" stroke-width="${stroke * 3}" stroke-linecap="round" opacity="${(glow / 400).toFixed(2)}" filter="url(#tg)"/>`;
+    }
+    paths += `<path d="${d}" fill="none" stroke="${col}" stroke-width="${stroke}" stroke-linecap="round" opacity="0.95"/>`;
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-250 -250 500 500">
+${defs}
+<rect x="-250" y="-250" width="500" height="500" fill="${bg}"/>
+${paths}
+</svg>`;
+}
+
+async function loadPresetList() {
+  try {
+    const res = await fetch(PRESETS_PHP_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    presetNames = await res.json();
+  } catch (e) {
+    presetNames = [];
+    setServerStatus('err', 'Could not load presets: ' + e.message);
+  }
+  rebuildPresetGrid();
+}
+
+async function loadPresetConfig(name) {
+  const res = await fetch(PRESETS_DIR_URL + encodeURIComponent(name) + '.json', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
+async function savePreset(name, config) {
+  const pass = getServerPassword();
+  if (!pass) throw new Error('Server password not set.');
+  const svgStr = generatePresetSVG(config);
+  const res = await fetch(PRESETS_PHP_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Auth-Token': pass },
+    body: JSON.stringify({ name, config, svg: svgStr }),
+  });
+  if (!res.ok) {
+    let msg = `Save failed (HTTP ${res.status})`;
+    try { const err = await res.json(); if (err?.error) msg += ': ' + err.error; } catch {}
+    throw new Error(msg);
+  }
+}
+
+async function deletePreset(name) {
+  const pass = getServerPassword();
+  if (!pass) throw new Error('Server password not set.');
+  const res = await fetch(PRESETS_PHP_URL + '?name=' + encodeURIComponent(name), {
+    method: 'DELETE',
+    headers: { 'X-Auth-Token': pass },
+  });
+  if (!res.ok) {
+    let msg = `Delete failed (HTTP ${res.status})`;
+    try { const err = await res.json(); if (err?.error) msg += ': ' + err.error; } catch {}
+    throw new Error(msg);
+  }
+}
+
+function rebuildPresetGrid(selectName) {
+  const grid = $('preset_grid');
+  grid.innerHTML = '';
+
+  if (selectName) selectedPresetName = selectName;
+
+  for (const name of presetNames) {
+    const card = document.createElement('div');
+    card.className = 'preset-card';
+    if (name === selectedPresetName) card.classList.add('active');
+
+    const img = document.createElement('img');
+    img.src = presetSvgOverrides[name] || (PRESETS_DIR_URL + encodeURIComponent(name) + '.svg?t=' + Date.now());
+    img.alt = name;
+    img.loading = 'lazy';
+    card.appendChild(img);
+
+    const label = document.createElement('div');
+    label.className = 'preset-label';
+    label.textContent = name;
+    label.title = name;
+    card.appendChild(label);
+
+    card.addEventListener('click', async () => {
+      selectedPresetName = name;
+      grid.querySelectorAll('.preset-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      $('preset_name').value = name;
+      try {
+        const cfg = await loadPresetConfig(name);
+        lastAppliedPresetCfg = cfg;
+        applyPreset(cfg);
+        if (isMobile()) $('panel_right').classList.add('hidden');
+      } catch (e) {
+        setServerStatus('err', 'Load failed: ' + e.message);
+      }
+    });
+
+    grid.appendChild(card);
+  }
+}
+
+function applyPreset(cfg) {
+  const map = {
+    count: 'p_count', lobes: 'p_lobes', radius: 'p_radius',
+    spacing: 'p_spacing', amp: 'p_amp', asymmetry: 'p_asymmetry', symRot: 'p_symrot', rotSpeed: 'p_rotspeed',
+    phaseStep: 'p_phasestep', pulseMin: 'p_pulsemin',
+    pulseSpeed: 'p_pulsespeed', pulseSpread: 'p_pulsespread',
+    stroke: 'p_stroke', glow: 'p_glow', scale: 'p_scale',
+    bg: 'c_bg', ringA: 'c_ringA', ringB: 'c_ringB',
+    opacityA: 'p_opacityA', opacityB: 'p_opacityB',
+  };
+  for (const [key, id] of Object.entries(map)) {
+    if (cfg[key] !== undefined && $(id)) $(id).value = cfg[key];
+  }
+  $('p_waveform').value = cfg.waveform || 'cosine';
+  $('p_rotdir').value = cfg.rotDir || 'same';
+  $('p_symmetry').value = String(cfg.symmetry || 1);
+  $('p_colormode').value = cfg.colorMode || 'alternate';
+  ['p_waveform','p_rotdir','p_symmetry','p_colormode'].forEach(id => syncCustomSelect($(id)));
+
+  // Restore lock states
+  locked.clear();
+  document.querySelectorAll('.lock').forEach(btn => {
+    btn.classList.remove('locked');
+    btn.innerHTML = '&#x1F513;';
+    btn.title = 'Lock';
+  });
+  if (cfg.lockedParams) {
+    cfg.lockedParams.forEach(id => {
+      locked.add(id);
+      const btn = document.querySelector(`.lock[data-for="${id}"]`);
+      if (btn) { btn.classList.add('locked'); btn.innerHTML = '&#x1F512;'; btn.title = 'Unlock'; }
+    });
+  }
+
+  // Restore anim toggle states
+  animSelected.clear();
+  animState.clear();
+  animRunning = false;
+  document.querySelectorAll('.anim-toggle').forEach(btn => btn.classList.remove('active'));
+  $('btn_animate').textContent = '✨ Animate selected';
+  $('btn_animate').classList.remove('ok');
+  if (cfg.animParams) {
+    cfg.animParams.forEach(id => {
+      animSelected.add(id);
+      const btn = document.querySelector(`.anim-toggle[data-for="${id}"]`);
+      if (btn) btn.classList.add('active');
+    });
+  }
+  if (cfg.animActive && animSelected.size > 0) {
+    animSelected.forEach(id => {
+      animState.set(id, { phase: Math.random() * Math.PI * 2, speed: 0.3 + Math.random() * 0.7 });
+    });
+    animRunning = true;
+    $('btn_animate').textContent = '✨ Stop animation';
+    $('btn_animate').classList.add('ok');
+  }
+
+  // Restore touch mode
+  if (cfg.touchMode) {
+    const touchEl = $('p_touchmode');
+    if (touchEl) { touchEl.value = cfg.touchMode; syncCustomSelect(touchEl); }
+  }
+
+  // Restore collapsed sections
+  if (cfg.collapsed) {
+    setCollapsedSections(cfg.collapsed);
+  }
+
+  restart();
+}
+
+$('btn_preset_save').addEventListener('click', async () => {
+  const name = $('preset_name').value.trim();
+  if (!name) { alert('Please enter a name for the preset.'); return; }
+  if (presetNames.includes(name) && !confirm(`Overwrite preset "${name}"?`)) return;
+  try {
+    const savedCfg = JSON.parse($('config_out').value);
+    await savePreset(name, savedCfg);
+    flashButton($('btn_preset_save'), 'flash-save', 'Saved!');
+    presetSvgOverrides[name] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(generatePresetSVG(savedCfg));
+    await loadPresetList();
+    selectedPresetName = name;
+    rebuildPresetGrid(name);
+  } catch (e) {
+    setServerStatus('err', e.message);
+  }
+});
+
+$('btn_preset_delete').addEventListener('click', async () => {
+  if (!selectedPresetName) return;
+  if (!confirm(`Delete preset "${selectedPresetName}"?`)) return;
+  try {
+    await deletePreset(selectedPresetName);
+    flashButton($('btn_preset_delete'), 'flash-delete', 'Deleted!');
+    selectedPresetName = null;
+    await loadPresetList();
+  } catch (e) {
+    setServerStatus('err', e.message);
+  }
+});
+
+// ---- Server login ----
+let loggedIn = false;
+
+function updateAdminUI() {
+  $('admin_controls').style.display = loggedIn ? '' : 'none';
+  $('btn_login').textContent = loggedIn ? 'Log out' : 'Log in';
+  $('server_token').disabled = loggedIn;
+}
+
+async function tryLogin() {
+  const pass = $('server_token').value.trim();
+  if (!pass) { setServerStatus('err', 'Please enter a password.'); return; }
+  setServerPassword(pass);
+  try {
+    const res = await fetch(PRESETS_PHP_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    loggedIn = true;
+    setServerStatus('ok', 'Logged in.');
+    updateAdminUI();
+  } catch (e) {
+    setServerStatus('err', 'Connection failed: ' + e.message);
+  }
+}
+
+function doLogout() {
+  loggedIn = false;
+  setServerPassword('');
+  $('server_token').value = '';
+  setServerStatus('', '');
+  updateAdminUI();
+}
+
+$('btn_login').addEventListener('click', () => {
+  if (loggedIn) doLogout(); else tryLogin();
+});
+
+// Auto-login if password was saved
+(function() {
+  const saved = getServerPassword();
+  if (saved) {
+    $('server_token').value = saved;
+    tryLogin();
+  }
+})();
+
+
+// ---- Embed: download library + copy snippet ----
+
+// The embeddable library source, kept here as a string so the same file
+// serves both the playground and the download. Loading this file with a
+// <script> tag exposes a global Mesmerizer object with .mount(el, preset).
+const EMBED_LIB_SOURCE = `/*!
+ * mesmerizer.js -- concentric wavy rings animation (Canvas 2D)
+ * Usage:
+ *   <div id="rings" style="width:600px;height:600px"></div>
+ *   <script src="mesmerizer.js"><\\/script>
+ *   <script>
+ *     const handle = Mesmerizer.mount('#rings', {
+ *       count: 4, lobes: 3, radius: 175, spacing: -1.2, amp: 29, asymmetry: 0,
+ *       rotSpeed: 0, phaseStep: 26.5, pulseMin: 15, pulseSpeed: 60, pulseSpread: 25,
+ *       stroke: 2.4, glow: 74, scale: 47,
+ *       waveform: 'cosine', rotDir: 'alternate', symmetry: 1, symRot: 0, colorMode: 'gradient',
+ *       bg: '#0a1a28', ringA: '#78b4ff', ringB: '#78f0c8',
+ *       opacityA: 95, opacityB: 95, applyBackground: false,
+ *     });
+ *     // handle.update({ lobes: 6 });
+ *     // handle.destroy();
+ *   <\\/script>
+ */
+(function (global) {
+  'use strict';
+
+  var SEGMENTS_SMOOTH = 160;
+  var SEGMENTS_SHARP  = 720;
+
+  var WAVEFORMS = {
+    cosine:   function(x) { return Math.cos(x); },
+    triangle: function(x) { return 1 - 2 * Math.acos(Math.cos(x)) / Math.PI; },
+    sawtooth: function(x) { var n = x / (2 * Math.PI); return 2 * (n - Math.floor(n + 0.5)); },
+    square:   function(x) { return Math.cos(x) >= 0 ? 1 : -1; },
+    spiky:    function(x) { var c = Math.cos(x); return c * c * c; },
+    petal:    function(x) { return Math.abs(Math.cos(x)); },
+    bounce:   function(x) { return Math.abs(Math.sin(x)); },
+    gear:     function(x) { var p = ((x % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); return p < Math.PI * 0.35 ? 1 : -1; },
+    steps:    function(x) { var c = Math.cos(x); return Math.round(c * 3) / 3; },
+    pinch:    function(x) { var c = Math.cos(x); return c * c * c * c * c; },
+  };
+
+  var DEFAULTS = {
+    count: 4, lobes: 3, radius: 175, spacing: -1.2, amp: 29, asymmetry: 0,
+    rotSpeed: 0, phaseStep: 26.5, pulseMin: 15, pulseSpeed: 60, pulseSpread: 25,
+    stroke: 2.4, glow: 74, scale: 47,
+    waveform: 'cosine', rotDir: 'alternate', symmetry: 1, symRot: 0, colorMode: 'gradient',
+    bg: '#0a1a28', ringA: '#78b4ff', ringB: '#78f0c8',
+    opacityA: 0.95, opacityB: 0.95,
+    applyBackground: false,
+  };
+
+  function hexToRgb(hex) {
+    var m = /^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex);
+    return m ? { r: parseInt(m[1],16), g: parseInt(m[2],16), b: parseInt(m[3],16) } : { r:255, g:255, b:255 };
+  }
+  function rgba(c, a) { return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + a + ')'; }
+  function lighten(c, amt) {
+    return { r: Math.round(c.r+(255-c.r)*amt), g: Math.round(c.g+(255-c.g)*amt), b: Math.round(c.b+(255-c.b)*amt) };
+  }
+  function hexToHsl(hex) {
+    var c = hexToRgb(hex), r1=c.r/255, g1=c.g/255, b1=c.b/255;
+    var max=Math.max(r1,g1,b1), min=Math.min(r1,g1,b1), h=0, s=0, l=(max+min)/2;
+    if (max!==min) { var d=max-min; s=l>0.5?d/(2-max-min):d/(max+min);
+      if(max===r1)h=((g1-b1)/d+(g1<b1?6:0))/6; else if(max===g1)h=((b1-r1)/d+2)/6; else h=((r1-g1)/d+4)/6;
+    } return {h:h*360,s:s*100,l:l*100};
+  }
+  function hslToHex(h,s,l) {
+    h=((h%360)+360)%360; s/=100; l/=100; var a=s*Math.min(l,1-l);
+    function f(n){var k=(n+h/30)%12; return Math.round(255*Math.max(0,Math.min(1,l-a*Math.max(-1,Math.min(k-3,9-k,1))))).toString(16).padStart(2,'0');}
+    return '#'+f(0)+f(8)+f(4);
+  }
+  function lerpHsl(a,b,t) {
+    var dh=b.h-a.h; if(dh>180)dh-=360; if(dh<-180)dh+=360;
+    return {h:a.h+dh*t, s:a.s+(b.s-a.s)*t, l:a.l+(b.l-a.l)*t};
+  }
+
+  function resolve(t) { return typeof t==='string'?document.querySelector(t):t; }
+
+  function mount(target, userPreset) {
+    var host = resolve(target);
+    if (!host) throw new Error('Mesmerizer.mount: target not found');
+
+    var cfg = Object.assign({}, DEFAULTS, userPreset || {});
+    var rings = [], startT = null, rafId = null;
+
+    var canvas = document.createElement('canvas');
+    canvas.style.width = '100%'; canvas.style.height = '100%'; canvas.style.display = 'block';
+    host.appendChild(canvas);
+    var ctx = canvas.getContext('2d');
+    var glowCanvas = document.createElement('canvas');
+    var glowCtx = glowCanvas.getContext('2d');
+    var drawW, drawH, drawScale;
+    var _isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    var _safariGlow = _isSafari;
+
+    function resize() {
+      var rect = canvas.getBoundingClientRect();
+      var dpr = Math.min(window.devicePixelRatio||1, 2);
+      canvas.width = rect.width*dpr; canvas.height = rect.height*dpr;
+      drawW = rect.width; drawH = rect.height;
+      drawScale = Math.min(drawW, drawH) / 500;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    var P = {};
+    function readCfg() {
+      P.count = cfg.count; P.lobes = cfg.lobes; P.radius = cfg.radius;
+      P.spacing = cfg.spacing; P.amp = cfg.amp;
+      P.asymmetry = cfg.asymmetry || 0;
+      P.rotSpeed = cfg.rotSpeed * 0.00001;
+      P.phaseStep = cfg.phaseStep * Math.PI / 180;
+      P.pulseMin = cfg.pulseMin / 100;
+      P.pulseSpeed = cfg.pulseSpeed * 0.00001;
+      P.pulseSpread = cfg.pulseSpread * 0.00001;
+      P.stroke = cfg.stroke; P.glow = cfg.glow / 100;
+      P.scale = (cfg.scale || 100) / 100;
+      P.waveFn = WAVEFORMS[cfg.waveform] || WAVEFORMS.cosine;
+      P.rotDir = cfg.rotDir || 'same';
+      P.symmetry = cfg.symmetry || 1;
+      P.symRot = (cfg.symRot || 0) * Math.PI / 180;
+      P.colorMode = cfg.colorMode || 'alternate';
+      P.bg = cfg.bg; P.ringA = cfg.ringA; P.ringB = cfg.ringB;
+      P.opacityA = cfg.opacityA != null ? cfg.opacityA / 100 : 0.95;
+      P.opacityB = cfg.opacityB != null ? cfg.opacityB / 100 : 0.95;
+    }
+
+    function rebuild() {
+      readCfg(); rings = [];
+      if (cfg.applyBackground) host.style.background = P.bg;
+      var hslA = hexToHsl(P.ringA), hslB = hexToHsl(P.ringB);
+      for (var i = 0; i < P.count; i++) {
+        var ringHex;
+        if (P.colorMode === 'gradient') {
+          var t = P.count > 1 ? i/(P.count-1) : 0;
+          var hsl = lerpHsl(hslA, hslB, t);
+          ringHex = hslToHex(hsl.h, hsl.s, hsl.l);
+        } else { ringHex = i%2===0 ? P.ringA : P.ringB; }
+        rings.push({
+          baseRadius: P.radius + i*P.spacing,
+          phaseOffset: i*P.phaseStep,
+          pulseSpeed: P.pulseSpeed + i*P.pulseSpread,
+          pulsePhase: i*1.3,
+          strokeColor: rgba(lighten(hexToRgb(ringHex),0.75), P.colorMode==='gradient' ? (P.opacityA+(P.opacityB-P.opacityA)*(P.count>1?i/(P.count-1):0)) : (i%2===0?P.opacityA:P.opacityB)),
+          glowColor: ringHex,
+          rotSign: (P.rotDir==='alternate' && i%2===1) ? -1 : 1,
+        });
+      }
+    }
+
+    function traceRing(tgt, ring, t, cx, cy, sc) {
+      var rot = t*P.rotSpeed*ring.rotSign + ring.phaseOffset;
+      var pulse = 0.5+0.5*Math.sin(t*ring.pulseSpeed+ring.pulsePhase);
+      var ampBase = P.amp*(P.pulseMin+(1-P.pulseMin)*pulse);
+      var asym = P.asymmetry, asymFreq = Math.floor(P.lobes / 2);
+      var wf = P.waveFn === WAVEFORMS.sawtooth || P.waveFn === WAVEFORMS.square || P.waveFn === WAVEFORMS.spiky || P.waveFn === WAVEFORMS.gear || P.waveFn === WAVEFORMS.steps;
+      var segs = wf ? SEGMENTS_SHARP : SEGMENTS_SMOOTH;
+      var step = (Math.PI * 2) / segs;
+      tgt.beginPath();
+      for (var i=0;i<=segs;i++) {
+        var theta=i*step;
+        var lobeAmp = ampBase * (1 - asym * 0.5 * (1 - Math.cos(theta * asymFreq)));
+        var r=ring.baseRadius+lobeAmp*P.waveFn(P.lobes*(theta-rot));
+        var x=cx+r*Math.cos(theta)*sc, y=cy+r*Math.sin(theta)*sc;
+        if(i===0)tgt.moveTo(x,y); else tgt.lineTo(x,y);
+      }
+      tgt.closePath();
+    }
+
+    function frame(now) {
+      if(startT===null)startT=now;
+      var t=now-startT;
+      var w=drawW,h=drawH,cx=w/2,cy=h/2,scale=drawScale*P.scale;
+      var folds=P.symmetry, angleStep=(Math.PI*2)/folds;
+
+      if(P.glow>0){
+        var gr=0.5,gw=Math.round(w*gr),gh=Math.round(h*gr);
+        if(glowCanvas.width!==gw||glowCanvas.height!==gh){glowCanvas.width=gw;glowCanvas.height=gh;}
+        glowCtx.clearRect(0,0,gw,gh); glowCtx.lineCap='round';
+        var gs=scale*gr,gcx=gw/2,gcy=gh/2,bl=12*P.glow;
+        var sb=_safariGlow?0.45:1.0;
+        glowCtx.filter='blur('+bl*gr*sb+'px)';
+        glowCtx.lineWidth=(P.stroke+bl*0.3)*gr;
+        for(var f=0;f<folds;f++){
+          glowCtx.save();glowCtx.translate(gcx,gcy);glowCtx.rotate(f*angleStep+f*P.symRot);glowCtx.translate(-gcx,-gcy);
+          for(var j=0;j<rings.length;j++){
+            var base=hexToRgb(rings[j].glowColor),bright=lighten(base,0.3);
+            glowCtx.strokeStyle=rgba(bright,0.7*Math.min(1,P.glow)*sb);
+            traceRing(glowCtx,rings[j],t,gcx,gcy,gs);glowCtx.stroke();
+          }
+          glowCtx.restore();
+        }
+        glowCtx.filter='none';
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.globalCompositeOperation='lighter';
+        ctx.drawImage(glowCanvas,0,0,gw,gh,0,0,w,h);
+        ctx.globalCompositeOperation='source-over';
+      } else { ctx.clearRect(0,0,canvas.width,canvas.height); }
+
+      ctx.lineCap='round'; ctx.lineWidth=P.stroke; ctx.shadowBlur=0;
+      for(var f2=0;f2<folds;f2++){
+        ctx.save();ctx.translate(cx,cy);ctx.rotate(f2*angleStep+f2*P.symRot);ctx.translate(-cx,-cy);
+        for(var k=0;k<rings.length;k++){
+          ctx.strokeStyle=rings[k].strokeColor;
+          traceRing(ctx,rings[k],t,cx,cy,scale);ctx.stroke();
+        }
+        ctx.restore();
+      }
+      rafId=requestAnimationFrame(frame);
+    }
+
+    function start() { startT=null; if(rafId)cancelAnimationFrame(rafId); rafId=requestAnimationFrame(frame); }
+    var ro = new ResizeObserver(function(){ resize(); });
+    ro.observe(host);
+    resize(); rebuild(); start();
+
+    return {
+      update: function(patch) { Object.assign(cfg, patch||{}); rebuild(); start(); },
+      setPreset: function(preset) { cfg=Object.assign({},DEFAULTS,preset||{}); rebuild(); start(); },
+      destroy: function() { if(rafId)cancelAnimationFrame(rafId); ro.disconnect(); if(canvas.parentNode)canvas.parentNode.removeChild(canvas); rings=[]; },
+      element: canvas,
+    };
+  }
+
+  global.Mesmerizer = { mount: mount, defaults: DEFAULTS };
+})(typeof window !== 'undefined' ? window : this);
+`;
+
+function buildSnippet(preset) {
+  return [
+    '<div id="mesmerizer" style="width:600px;height:600px"></div>',
+    '<script src="mesmerizer.js"></' + 'script>',
+    '<script>',
+    '  Mesmerizer.mount("#mesmerizer", ' + JSON.stringify(preset, null, 2).replace(/\n/g, '\n  ') + ');',
+    '</' + 'script>',
+  ].join('\n');
+}
+
+$('btn_embed_download').addEventListener('click', () => {
+  const blob = new Blob([EMBED_LIB_SOURCE], { type: 'application/javascript' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = 'mesmerizer.js';
+  a.click();
+  URL.revokeObjectURL(url);
+  flashButton($('btn_embed_download'), 'Downloaded!');
+});
+
+$('btn_embed_snippet').addEventListener('click', async () => {
+  await copyText(buildSnippet(currentPreset()));
+  flashButton($('btn_embed_snippet'));
+});
+
+$('btn_export_svg').addEventListener('click', () => {
+  const svg = generatePresetSVG(currentPreset());
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'mesmerizer.svg';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  flashButton($('btn_export_svg'), 'Exported!');
+});
+
+// ---- Audio-Reactive Mode ----
+let audioCtx = null;
+let analyser = null;
+let audioStream = null;
+let audioActive = false;
+let freqData = null;
+
+$('btn_audio').addEventListener('click', async () => {
+  if (audioActive) {
+    audioActive = false;
+    $('btn_audio').textContent = 'Capture Audio';
+    $('audio_status').textContent = '';
+    if (audioStream) { audioStream.getTracks().forEach(t => t.stop()); audioStream = null; }
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    $('audio_status').textContent = 'Requires HTTPS. Please load over https:// or localhost.';
+    $('audio_status').style.color = '#f0a0a0';
+    return;
+  }
+  try {
+    audioStream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: true,
+    });
+    const audioTracks = audioStream.getAudioTracks();
+    if (audioTracks.length === 0) {
+      audioStream.getTracks().forEach(t => t.stop());
+      audioStream = null;
+      $('audio_status').textContent = 'No audio selected — make sure to check "Share audio" in the dialog.';
+      $('audio_status').style.color = '#f0a0a0';
+      return;
+    }
+    audioStream.getVideoTracks().forEach(t => t.stop());
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    const source = audioCtx.createMediaStreamSource(audioStream);
+    source.connect(analyser);
+    audioActive = true;
+    $('btn_audio').textContent = 'Stop Audio';
+    $('audio_status').textContent = 'Capturing system audio...';
+    $('audio_status').style.color = '#8ee0a8';
+    audioStream.getAudioTracks()[0].addEventListener('ended', () => {
+      audioActive = false;
+      audioStream = null;
+      $('btn_audio').textContent = 'Capture Audio';
+      $('audio_status').textContent = '';
+    });
+  } catch (e) {
+    const msg = e.name === 'NotAllowedError'
+      ? 'Cancelled — no screen/tab selected.'
+      : 'Audio capture error: ' + e.message;
+    $('audio_status').textContent = msg;
+    $('audio_status').style.color = '#f0a0a0';
+  }
+});
+
+function getAudioLevels() {
+  if (!audioActive || !analyser) return null;
+  analyser.getByteFrequencyData(freqData);
+  const binCount = freqData.length;
+  const bassEnd = Math.floor(binCount * 0.15);
+  const midEnd  = Math.floor(binCount * 0.5);
+  let bass = 0, mid = 0, high = 0;
+  for (let i = 0; i < bassEnd; i++) bass += freqData[i];
+  for (let i = bassEnd; i < midEnd; i++) mid += freqData[i];
+  for (let i = midEnd; i < binCount; i++) high += freqData[i];
+  bass /= bassEnd * 255;
+  mid  /= (midEnd - bassEnd) * 255;
+  high /= (binCount - midEnd) * 255;
+  return { bass, mid, high };
+}
+
+// ---- URL Sharing ----
+$('btn_share').addEventListener('click', async () => {
+  const preset = currentPreset();
+  const json = JSON.stringify(preset);
+  const hash = '#preset=' + btoa(unescape(encodeURIComponent(json)));
+  const url = location.origin + location.pathname + hash;
+  await copyText(url);
+  flashButton($('btn_share'), 'Link copied!');
+});
+
+function loadFromUrlHash() {
+  const hash = location.hash;
+  if (!hash.startsWith('#preset=')) return false;
+  try {
+    const json = decodeURIComponent(escape(atob(hash.slice(8))));
+    const cfg = JSON.parse(json);
+    applyPreset(cfg);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// ---- Panel toggles ----
+const isMobile = () => window.innerWidth <= 720;
+
+$('toggle_left').addEventListener('click', () => {
+  $('panel_left').classList.toggle('hidden');
+  if (isMobile() && !$('panel_left').classList.contains('hidden')) {
+    $('panel_right').classList.add('hidden');
+    $('panel_bottom').classList.add('hidden');
+  }
+});
+$('toggle_right').addEventListener('click', () => {
+  $('panel_right').classList.toggle('hidden');
+  if (isMobile() && !$('panel_right').classList.contains('hidden')) {
+    $('panel_left').classList.add('hidden');
+    $('panel_bottom').classList.add('hidden');
+  }
+});
+$('toggle_bottom').addEventListener('click', () => {
+  $('panel_bottom').classList.toggle('hidden');
+  if (isMobile() && !$('panel_bottom').classList.contains('hidden')) {
+    $('panel_left').classList.add('hidden');
+    $('panel_right').classList.add('hidden');
+  }
+});
+
+// ---- Fullscreen ----
+$('btn_fullscreen').addEventListener('click', () => {
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+  } else {
+    document.documentElement.requestFullscreen();
+  }
+});
+
+// ---- Pop-out (Presentation Mode) ----
+let popoutWin = null;
+
+function getStylesForPopout() {
+  const styles = document.querySelector('style');
+  return styles ? styles.textContent : '';
+}
+
+$('btn_popout').addEventListener('click', () => {
+  if (popoutWin && !popoutWin.closed) {
+    returnPanels();
+    popoutWin.close();
+    popoutWin = null;
+    return;
+  }
+
+  popoutWin = window.open('', 'mesmerizer_controls', 'width=700,height=900');
+  if (!popoutWin) { alert('Popup blocked — please allow popups for this site.'); return; }
+
+  const panelLeft = $('panel_left');
+  const panelRight = $('panel_right');
+  const panelBottom = $('panel_bottom');
+
+  popoutWin.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Mesmerizer Controls</title></head><body></body></html>');
+  popoutWin.document.close();
+
+  const popDoc = popoutWin.document;
+  const popStyle = popDoc.createElement('style');
+  popStyle.textContent = getStylesForPopout() + `
+    html, body { margin: 0; padding: 0; height: 100%; overflow: auto;
+      background: rgba(10, 20, 30, 0.95); color: #cfe; font-family: system-ui, sans-serif; }
+    .panel { position: static; width: auto; max-height: none; border-radius: 0;
+      border: none; background: transparent; backdrop-filter: none; }
+    .panel.hidden { display: none; }
+    .popout-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 0; min-height: 100vh; }
+    .popout-layout > .panel { border-right: 1px solid rgba(150, 220, 240, 0.12); }
+    .popout-layout > .panel-bottom { grid-column: 1 / -1; border-right: none; border-top: 1px solid rgba(150, 220, 240, 0.12); transform: none; position: static; bottom: auto; left: auto; max-width: none; overflow: visible; }
+    @media (max-width: 600px) { .popout-layout { grid-template-columns: 1fr; } .popout-layout > .panel-bottom { grid-column: 1; } }
+  `;
+  popDoc.head.appendChild(popStyle);
+
+  const layout = popDoc.createElement('div');
+  layout.className = 'popout-layout';
+  popDoc.body.appendChild(layout);
+
+  panelLeft.querySelectorAll('.custom-select').forEach(w => w.remove());
+  panelRight.querySelectorAll('.custom-select').forEach(w => w.remove());
+  panelBottom.querySelectorAll('.custom-select').forEach(w => w.remove());
+
+  panelLeft.classList.remove('hidden');
+  panelRight.classList.remove('hidden');
+  panelBottom.classList.remove('hidden');
+  layout.appendChild(popDoc.adoptNode(panelLeft));
+  layout.appendChild(popDoc.adoptNode(panelRight));
+  layout.appendChild(popDoc.adoptNode(panelBottom));
+
+  $('toggle_left').style.display = 'none';
+  $('toggle_right').style.display = 'none';
+  $('toggle_bottom').style.display = 'none';
+  $('btn_randomize_float').style.display = 'none';
+  $('btn_fullscreen').style.display = 'none';
+  $('btn_popout').style.display = 'none';
+  $('app_title').style.display = 'none';
+
+  const toolbar = popDoc.createElement('div');
+  toolbar.style.cssText = 'display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid rgba(150,220,240,0.12);';
+  const closeBtn = popDoc.createElement('button');
+  closeBtn.textContent = 'Return controls';
+  closeBtn.className = 'btn';
+  closeBtn.addEventListener('click', () => {
+    const win = popoutWin;
+    returnPanels();
+    if (win && !win.closed) win.close();
+  });
+  toolbar.appendChild(closeBtn);
+  popDoc.body.insertBefore(toolbar, layout);
+
+  popDoc.querySelectorAll('.row-select > select, .bottom-ctrl > select').forEach(sel => buildCustomSelect(sel));
+
+  popoutCheckId = setInterval(() => {
+    if (!popoutWin || popoutWin.closed) {
+      clearInterval(popoutCheckId);
+      popoutCheckId = null;
+      restoreUI();
+    }
+  }, 300);
+
+  popoutWin.addEventListener('beforeunload', () => {
+    returnPanels();
+  });
+});
+
+let popoutCheckId = null;
+
+function returnPanels() {
+  if (!popoutWin || popoutWin.closed) { popoutWin = null; restoreUI(); return; }
+  try {
+    const popDoc = popoutWin.document;
+    popDoc.querySelectorAll('.custom-select').forEach(w => w.remove());
+    const panelLeft = popDoc.getElementById('panel_left');
+    const panelRight = popDoc.getElementById('panel_right');
+    const panelBottom = popDoc.getElementById('panel_bottom');
+    if (panelLeft) document.body.appendChild(document.adoptNode(panelLeft));
+    if (panelRight) document.body.appendChild(document.adoptNode(panelRight));
+    if (panelBottom) document.body.appendChild(document.adoptNode(panelBottom));
+  } catch (e) {}
+  popoutWin = null;
+  restoreUI();
+}
+
+function restoreUI() {
+  if (popoutCheckId) { clearInterval(popoutCheckId); popoutCheckId = null; }
+  $('toggle_left').style.display = '';
+  $('toggle_right').style.display = '';
+  $('toggle_bottom').style.display = '';
+  $('btn_randomize_float').style.display = '';
+  $('btn_fullscreen').style.display = '';
+  $('btn_popout').style.display = '';
+  $('app_title').style.display = '';
+  document.querySelectorAll('.row-select > select').forEach(sel => buildCustomSelect(sel));
+  const animSpeedEl = $('p_animspeed');
+  if (animSpeedEl) updateSliderFill(animSpeedEl);
+}
+
+window.addEventListener('beforeunload', () => {
+  if (popoutWin && !popoutWin.closed) popoutWin.close();
+});
+
+// ---- Init ----
+const animSpeedEl = $('p_animspeed');
+if (animSpeedEl) {
+  updateSliderFill(animSpeedEl);
+  animSpeedEl.addEventListener('input', () => {
+    $('v_animspeed').textContent = animSpeedEl.value;
+    updateSliderFill(animSpeedEl);
+  });
+}
+
+if (window.innerWidth <= 720) {
+  $('panel_left').classList.add('hidden');
+  $('panel_right').classList.add('hidden');
+  $('panel_bottom').classList.add('hidden');
+}
+if (!loadFromUrlHash()) {
+  restart();
+}
+loadPresetList();
+</script>
+</body>
+</html>
